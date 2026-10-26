@@ -31,18 +31,24 @@ export default function Tile({ item, type, busy, onOpen, onStep }: Props) {
         />
       )}
       <div className="tile-top">
-        <a
-          className="tile-open"
-          href={`${siteBase(item.provider)}/${type}/${item.id}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          title={`Open on ${siteName(item.provider)}`}
-          onClick={(e) => e.stopPropagation()}
-        >
-          ↗
-        </a>
+        <div className="tile-top-row">
+          <a
+            className="tile-open"
+            href={`${siteBase(item.provider)}/${type}/${item.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={`Open on ${siteName(item.provider)}`}
+            aria-label={`Open on ${siteName(item.provider)}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M7 17 17 7" />
+              <path d="M8 7h9v9" />
+            </svg>
+          </a>
+          {item.score > 0 && <span className="tile-chip tile-score">★ {item.score}</span>}
+        </div>
         {b > 0 && <span className="tile-chip behind-chip" title="Episodes behind">⏳ {b}</span>}
-        {item.score > 0 && <span className="tile-chip tile-score">★ {item.score}</span>}
       </div>
       <div className="tile-bottom">
         <div className="tile-title">{item.title}</div>
