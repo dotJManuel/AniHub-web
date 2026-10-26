@@ -1,4 +1,4 @@
-import { handleApi } from '../../../server/mal.js';
+import { handleApi } from '../../server/mal.js';
 
 const handler = (request) => handleApi(request);
 

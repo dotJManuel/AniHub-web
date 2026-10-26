@@ -43,7 +43,9 @@ async function apiFetch(path: string, opts: { method?: string; body?: string } =
   const token = await ensureMalToken();
   const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
   if (opts.body) headers['Content-Type'] = 'application/x-www-form-urlencoded';
-  const res = await fetch(`${PROXY_URL}/api/mal/proxy${path}`, {
+  // La ruta de MAL va en `_p` y su query string se reenvía tal cual.
+  const [p, query = ''] = path.split('?');
+  const res = await fetch(`${PROXY_URL}/api/mal/proxy?_p=${encodeURIComponent(p)}${query ? `&${query}` : ''}`, {
     method: opts.method || 'GET',
     headers,
     body: opts.body,

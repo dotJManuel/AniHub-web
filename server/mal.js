@@ -5,7 +5,8 @@
 // endpoint de token. Aquí:
 //   POST /api/mal/token          -> intercambia code / refresh_token por tokens,
 //                                   añadiendo el client_secret (solo existe aquí).
-//   ANY  /api/mal/proxy/<ruta>   -> reenvía a https://api.myanimelist.net/v2/<ruta>
+//   ANY  /api/mal/proxy?_p=/<ruta>&...
+//                                -> reenvía a https://api.myanimelist.net/v2/<ruta>
 //                                   con el Authorization del cliente.
 //
 // Variables de entorno: MAL_CLIENT_SECRET y, opcional, MAL_CLIENT_ID
@@ -14,7 +15,7 @@
 const MAL_TOKEN_URL = 'https://myanimelist.net/v1/oauth2/token';
 const MAL_API_BASE = 'https://api.myanimelist.net/v2';
 const GRANTS = new Set(['authorization_code', 'refresh_token']);
-const PROXY_PREFIX = '/api/mal/proxy';
+const PATH_PARAM = '_p';
 
 function json(body, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -81,8 +82,11 @@ export async function handleToken(request, env) {
 export async function handleApi(request) {
   if (!sameOrigin(request)) return json({ error: 'origin_not_allowed' }, 403);
 
+  // La ruta de MAL viaja en el parámetro `_p` (sin rutas dinámicas); el resto de
+  // parámetros se reenvían tal cual.
   const url = new URL(request.url);
-  const rest = url.pathname.startsWith(PROXY_PREFIX) ? url.pathname.slice(PROXY_PREFIX.length) : '';
+  const rest = url.searchParams.get(PATH_PARAM) || '';
+  url.searchParams.delete(PATH_PARAM);
   if (!/^\/[A-Za-z0-9_@/.-]*$/.test(rest) || rest.includes('..')) return json({ error: 'invalid_path' }, 400);
 
   const auth = request.headers.get('Authorization');

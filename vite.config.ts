@@ -13,7 +13,7 @@ function malApiDev(): Plugin {
       server.middlewares.use(async (req, res, next) => {
         const path = (req.url || '').split('?')[0];
         const isToken = path === '/api/mal/token';
-        const isProxy = path.startsWith('/api/mal/proxy/');
+        const isProxy = path === '/api/mal/proxy';
         if (!isToken && !isProxy) return next();
 
         const { handleToken, handleApi } = await import('./server/mal.js');
