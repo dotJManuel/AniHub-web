@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Header from '../components/Header';
@@ -101,6 +101,15 @@ function DetailBody({ d, loadingExtras }: { d: DetailT; loadingExtras: boolean }
   });
   const patch = (p: Partial<EntryInput>) => setEntry((e) => ({ ...e, ...p }));
 
+  // Vista previa de la portada a tamaño completo; se cierra con clic fuera o Esc.
+  const [zoom, setZoom] = useState(false);
+  useEffect(() => {
+    if (!zoom) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setZoom(false);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [zoom]);
+
   const save = useMutation({
     mutationFn: () => service.setEntry(d.provider, d.type, d.id, entry),
     onSuccess: () => {
@@ -130,8 +139,24 @@ function DetailBody({ d, loadingExtras }: { d: DetailT; loadingExtras: boolean }
 
   return (
     <>
+      {zoom && (
+        <div className="lightbox" role="dialog" aria-modal="true" aria-label={d.title} onClick={() => setZoom(false)}>
+          <img src={d.image} alt={d.title} onClick={(e) => e.stopPropagation()} />
+          <button className="lightbox-close" aria-label="Cerrar" onClick={() => setZoom(false)}>
+            ✕
+          </button>
+        </div>
+      )}
       <div className="detail-head">
-        {d.image && <img className="cover" src={d.image} alt="" />}
+        {d.image && (
+          <img
+            className="cover zoomable"
+            src={d.image}
+            alt={d.title}
+            title="Ver imagen completa"
+            onClick={() => setZoom(true)}
+          />
+        )}
         <div className="detail-headinfo">
           <div className="detail-title">{d.title}</div>
           {d.titles.english && d.titles.english !== d.title && <div className="muted">{d.titles.english}</div>}
