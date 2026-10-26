@@ -1,0 +1,9 @@
+name = "anihub-mal-proxy"
+main = "src/index.js"
+compatibility_date = "2024-11-01"
+
+[vars]
+# Client ID de tu app de MAL (público). El secret NO va aquí: usa `wrangler secret put`.
+MAL_CLIENT_ID = "f7ead23693c76e225a35dfa8f5acadae"
+# Orígenes que pueden usar el proxy, separados por comas.
+ALLOWED_ORIGINS = "http://localhost:5173,https://tu-app.pages.dev"
