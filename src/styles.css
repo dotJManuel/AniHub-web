@@ -279,6 +279,9 @@ img { display: block; }
   display: flex; flex-direction: column; gap: 18px;
 }
 .mylist-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.mylist-head h2 { margin-right: auto; }
+.mylist-body { display: flex; flex-direction: column; gap: 18px; }
+.mylist-sum { margin: 0; font-size: 13px; color: var(--tx); }
 .mylist-head h2 { font-size: 18px; font-weight: 600; }
 .sync-state { font: 400 12px 'Geist Mono', monospace; color: var(--act); }
 .sync-state.dirty { color: var(--mu); }
@@ -452,6 +455,18 @@ a.nrow:hover { border-color: var(--mu); color: var(--tx); }
   .hero-head h1 { font-size: 30px; }
   .dbody { flex-direction: column; align-items: stretch; gap: 28px; }
   .dmain, .mylist { flex: none; width: 100%; }
+  /* "Mi lista" siempre a mano: barra fija abajo que se abre como panel deslizable */
+  .detail { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+  .mylist { position: fixed; left: 0; right: 0; bottom: 0; width: auto; z-index: 25; border-radius: 16px 16px 0 0; border-bottom: 0; box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.25); }
+  .mylist.collapsed { flex-direction: row; align-items: center; gap: 12px; z-index: 20; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); }
+  .mylist.collapsed .mylist-head { order: 2; }
+  .mylist.collapsed .mylist-head h2, .mylist.collapsed .sync-state { display: none; }
+  .mylist.collapsed .mylist-sum { order: 1; flex: 1; min-width: 0; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mylist.collapsed .mylist-body { display: none; }
+  .mylist:not(.collapsed) { max-height: 90vh; overflow-y: auto; gap: 14px; padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); }
+  .mylist:not(.collapsed) .mylist-sum { display: none !important; }
+  .sheet-backdrop { position: fixed; inset: 0; z-index: 24; background: rgba(0, 0, 0, 0.5); }
+  .dbody > .mylist { order: 0; }
 
   .scol h1 { font-size: 28px; }
   .snav { position: static; flex-direction: row; overflow-x: auto; flex: none; width: 100%; scrollbar-width: none; }

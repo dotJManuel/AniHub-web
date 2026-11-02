@@ -131,6 +131,9 @@ function DetailBody({ d, loadingExtras, otherId }: { d: DetailT; loadingExtras: 
     }),
     [d.my],
   );
+  // En móvil el panel va justo bajo la portada y arranca plegado (con un resumen); en escritorio siempre está abierto.
+  const isMobile = () => window.matchMedia('(max-width: 640px)').matches;
+  const [open, setOpen] = useState(() => !isMobile());
   const [entry, setEntry] = useState<EntryInput>(initial);
   const [saved, setSaved] = useState<EntryInput>(initial);
   const [saving, setSaving] = useState(false);
@@ -178,9 +181,22 @@ function DetailBody({ d, loadingExtras, otherId }: { d: DetailT; loadingExtras: 
     }
     if (ok.length) {
       setSaved(entry);
+      if (!bad.length && isMobile()) setOpen(false);
       if (!bad.length) toast(`Guardado en ${ok.map(siteName).join(' y ')}`);
     }
   };
+
+  const statusName =
+    entry.status === 'REPEATING'
+      ? isAnime ? 'Reviendo' : 'Releyendo'
+      : STATUS_LABEL(d.type).find(([v]) => v === entry.status)?.[1] ?? '';
+  const summary = [
+    statusName,
+    `${isAnime ? 'EP' : 'CH'} ${entry.progress}${total ? ` / ${total}` : ''}`,
+    entry.score > 0 ? `★ ${entry.score}` : '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   const syncLabel = saving ? '● guardando…' : failed ? '● error al guardar' : dirty ? '● sin guardar' : '● sincronizado';
   const syncCls = failed ? ' err' : dirty || saving ? ' dirty' : '';
@@ -308,11 +324,23 @@ function DetailBody({ d, loadingExtras, otherId }: { d: DetailT; loadingExtras: 
           )}
         </div>
 
-        <aside className="mylist" aria-label="Mi lista">
+        {open && <div className="sheet-backdrop hide-d" onClick={() => setOpen(false)} />}
+        <aside className={`mylist${open ? '' : ' collapsed'}`} aria-label="Mi lista">
           <div className="mylist-head">
             <h2>Mi lista</h2>
             <span className={`sync-state${syncCls}`} role="status">{syncLabel}</span>
+            <button
+              className="btn sm hide-d mylist-toggle"
+              aria-expanded={open}
+              aria-controls="mylist-body"
+              onClick={() => setOpen((v) => !v)}
+            >
+              {open ? 'Cerrar' : 'Editar'}
+            </button>
           </div>
+          <p className="mylist-sum mono hide-d">{summary}</p>
+
+          <div className="mylist-body" id="mylist-body">
 
           <div className="fgroup">
             <span className="lbl">ESTADO</span>
@@ -397,6 +425,7 @@ function DetailBody({ d, loadingExtras, otherId }: { d: DetailT; loadingExtras: 
           <button className="save" onClick={save} disabled={saving || !chosen.length}>
             {saving ? 'Guardando…' : 'Guardar cambios'}
           </button>
+          </div>
         </aside>
       </section>
     </>
