@@ -85,5 +85,8 @@ export const useScale = () => {
 export function useSource(): [ServiceId, (s: ServiceId) => void] {
   const status = useAuthStatus();
   const [v, set] = usePref('activeTab', status.mal || !status.anilist ? 'mal' : 'anilist');
-  return [v as ServiceId, set as (s: ServiceId) => void];
+  const pref = v as ServiceId;
+  // Si la fuente guardada no está conectada, se usa la que sí lo está.
+  const source: ServiceId = status[pref] ? pref : status.mal ? 'mal' : status.anilist ? 'anilist' : pref;
+  return [source, set as (s: ServiceId) => void];
 }

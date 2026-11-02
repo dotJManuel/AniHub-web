@@ -74,14 +74,16 @@ export default function Detail() {
   return (
     <>
       <SubHeader backLabel="Mi lista" path={`~/${type}/${merged ? slugify(merged.title) : '…'}`}>
-        <Segmented
-          label="Fuente de los datos"
-          value={svc}
-          options={options}
-          onChange={(s) => {
-            if (s !== svc && otherId) navigate(`/detail/${s}/${type}/${otherId}`, { replace: true });
-          }}
-        />
+        {status[other] && (
+          <Segmented
+            label="Fuente de los datos"
+            value={svc}
+            options={options}
+            onChange={(s) => {
+              if (s !== svc && otherId) navigate(`/detail/${s}/${type}/${otherId}`, { replace: true });
+            }}
+          />
+        )}
       </SubHeader>
       <main className="container detail">
         {detail.isPending && <div className="empty">Cargando detalle…</div>}

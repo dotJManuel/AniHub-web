@@ -71,6 +71,7 @@ export default function Settings() {
   const [scale, setScale] = useScale();
   const [activeTab] = usePref('activeTab', 'mal');
   const [defaultSource, setDefaultSource] = usePref('defaultSource', activeTab);
+  const status = useAuthStatus();
   const [active, setActive] = useState('cuentas');
   const [msg, setMsg] = useState('');
 
@@ -161,6 +162,8 @@ export default function Settings() {
                 ]}
               />
             </div>
+            {status.mal && status.anilist && (
+              <>
             <div className="hr" />
             <div className="pref-row">
               <div className="t">
@@ -178,6 +181,8 @@ export default function Settings() {
                 ]}
               />
             </div>
+              </>
+            )}
             <div className="hr" />
             <div className="pref-row">
               <div className="t">

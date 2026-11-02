@@ -47,6 +47,7 @@ export function MainHeader({ source, onSource }: { source: ServiceId; onSource: 
   const queryClient = useQueryClient();
   const syncing = useIsFetching({ queryKey: ['list'] }) > 0;
   const unread = useUnreadCount();
+  const sources = SOURCES.filter((s) => status[s.id]);
 
   const sync = () => {
     queryClient.invalidateQueries({ queryKey: ['list'] });
@@ -58,7 +59,9 @@ export function MainHeader({ source, onSource }: { source: ServiceId; onSource: 
     <header className="hdr">
       <div className="hdr-in container">
         <Logo />
-        <Segmented className="hdr-seg" label="Fuente" value={source} options={SOURCES} onChange={onSource} />
+        {sources.length > 1 && (
+          <Segmented className="hdr-seg" label="Fuente" value={source} options={sources} onChange={onSource} />
+        )}
         <div className="grow" />
         <div className="hdr-actions">
           <button className={`ibtn${syncing ? ' spin' : ''}`} onClick={sync} aria-label="Sincronizar" title="Sincronizar">

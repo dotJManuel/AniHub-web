@@ -37,6 +37,7 @@ export default function Home() {
   }, [params, setParams]);
 
   const connected = status[source];
+  const anyConnected = status.mal || status.anilist;
   const list = useQuery({
     queryKey: ['list', source],
     queryFn: () => service.getList(source),
@@ -120,9 +121,9 @@ export default function Home() {
 
         {!connected ? (
           <div className="banner">
-            <p>Todavía no conectaste {siteName(source)}.</p>
+            <p>{anyConnected ? `Todavía no conectaste ${siteName(source)}.` : 'Todavía no conectaste ninguna cuenta.'}</p>
             <Link to="/settings" className="btn pri">
-              Conectar {siteName(source)}
+              {anyConnected ? `Conectar ${siteName(source)}` : 'Conectar una cuenta'}
             </Link>
           </div>
         ) : (
