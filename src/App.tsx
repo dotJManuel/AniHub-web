@@ -1,13 +1,28 @@
 import { useCallback, useRef, useState } from 'react';
 import { Route, Routes } from 'react-router-dom';
-import { ToastContext, type ToastFn } from './hooks';
+import { ToastContext, useApplyTheme, type ToastFn } from './hooks';
+import * as storage from './lib/storage';
 import Home from './pages/Home';
 import Detail from './pages/Detail';
 import Notifications from './pages/Notifications';
 import Settings from './pages/Settings';
 import Callback from './pages/Callback';
 
+// Al abrir la app (una vez por sesión) se muestra la "Fuente predeterminada" de Ajustes.
+function applyDefaultSource() {
+  try {
+    if (sessionStorage.getItem('anihub:init')) return;
+    sessionStorage.setItem('anihub:init', '1');
+    const def = storage.getPref('defaultSource');
+    if (def === 'mal' || def === 'anilist') storage.setPref('activeTab', def);
+  } catch {
+    /* sin sessionStorage */
+  }
+}
+applyDefaultSource();
+
 export default function App() {
+  useApplyTheme();
   const [toast, setToast] = useState<{ msg: string; err: boolean; show: boolean }>({
     msg: '',
     err: false,

@@ -1,6 +1,8 @@
-import { createContext, useCallback, useContext, useSyncExternalStore } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState, useSyncExternalStore } from 'react';
 import * as auth from './lib/auth';
 import * as storage from './lib/storage';
+import { applyTheme, resolveTheme } from './lib/theme';
+import type { ScaleSetting, ServiceId, ThemePref } from './types';
 
 // Estado de conexión reactivo: se actualiza al conectar/desconectar una cuenta.
 export function useAuthStatus() {
@@ -19,11 +21,10 @@ export type ToastFn = (msg: string, isErr?: boolean) => void;
 export const ToastContext = createContext<ToastFn>(() => {});
 export const useToast = () => useContext(ToastContext);
 
-// Preferencia persistente simple (pestaña activa, tipo activo).
+// Preferencia persistente simple (pestaña activa, tipo activo, escala…).
 export function usePref(key: string, fallback: string): [string, (v: string) => void] {
-  const subscribe = storage.subscribe;
   const value = useSyncExternalStore(
-    subscribe,
+    storage.subscribe,
     () => storage.getPref(key) ?? fallback,
     () => fallback,
   );
@@ -35,4 +36,54 @@ export function usePref(key: string, fallback: string): [string, (v: string) => 
     [key],
   );
   return [value, set];
+}
+
+// --- Tema ------------------------------------------------------------------
+
+// Se monta una sola vez en <App>: aplica data-theme y sigue al sistema si es "Sistema".
+export function useApplyTheme() {
+  const [pref] = usePref('theme', 'system');
+  useEffect(() => {
+    applyTheme(pref as ThemePref);
+    if (pref !== 'system') return;
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const onChange = () => applyTheme('system');
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, [pref]);
+}
+
+export function useTheme() {
+  const [pref, setPref] = usePref('theme', 'system');
+  // El tema resuelto depende del sistema solo si pref === 'system'.
+  const [, force] = useState(0);
+  useEffect(() => {
+    if (pref !== 'system') return;
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const onChange = () => force((n) => n + 1);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, [pref]);
+  const resolved = resolveTheme(pref as ThemePref);
+  return {
+    pref: pref as ThemePref,
+    resolved,
+    setPref: (v: ThemePref) => setPref(v),
+    // El botón sol/luna alterna claro <-> oscuro de forma explícita.
+    toggle: () => setPref(resolved === 'dark' ? 'light' : 'dark'),
+  };
+}
+
+// --- Otros ajustes ------------------------------------------------------------
+
+export const useScale = () => {
+  const [v, set] = usePref('scale', 'orig');
+  return [v as ScaleSetting, set as (v: ScaleSetting) => void] as const;
+};
+
+// Fuente (servicio) activa en la lista. Si nunca se eligió, la primera conectada.
+export function useSource(): [ServiceId, (s: ServiceId) => void] {
+  const status = useAuthStatus();
+  const [v, set] = usePref('activeTab', status.mal || !status.anilist ? 'mal' : 'anilist');
+  return [v as ServiceId, set as (s: ServiceId) => void];
 }

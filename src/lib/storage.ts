@@ -60,6 +60,7 @@ export function clearProvider(provider: 'anilist' | 'mal') {
     setAnilistUser(null);
   } else {
     setMalTokens(null);
+    setMalUser(null);
   }
 }
 
@@ -78,3 +79,16 @@ export const setPref = (k: string, v: string) => {
     /* no-op */
   }
 };
+
+// Marca de tiempo local del último refresh correcto de cada servicio.
+export const getLastSync = (p: 'anilist' | 'mal'): number | null => {
+  const raw = getPref(`lastSync:${p}`);
+  return raw ? Number(raw) : null;
+};
+export const markSynced = (p: 'anilist' | 'mal') => {
+  setPref(`lastSync:${p}`, String(Date.now()));
+  window.dispatchEvent(new Event(EVENT));
+};
+
+export const getMalUser = () => read<{ id: number; name: string }>('malUser');
+export const setMalUser = (u: { id: number; name: string } | null) => write('malUser', u);

@@ -1,38 +1,28 @@
-import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import Header from '../components/Header';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { SubHeader } from '../components/Header';
+import { IconArrowUpRight, IconClose, IconPlay } from '../components/Icons';
+import Segmented, { type SegOption } from '../components/Segmented';
+import StatPanel, { type StatCell } from '../components/StatPanel';
 import { siteName } from '../components/Tile';
-import { useToast } from '../hooks';
+import { useAuthStatus, useToast } from '../hooks';
+import { cleanSynopsis, convertScore, fmtNum, initials, longCountdown, slugify } from '../lib/format';
 import * as service from '../lib/service';
 import type { Detail as DetailT, EntryInput, Link as LinkT, MediaType, ServiceId, ServiceList, Status } from '../types';
 
-function statusOptions(type: MediaType): [Status, string][] {
-  const anime = type === 'anime';
-  return [
-    ['WATCHING', anime ? 'Watching' : 'Reading'],
-    ['PLANNING', anime ? 'Plan to Watch' : 'Plan to Read'],
-    ['COMPLETED', 'Completed'],
-    ['PAUSED', 'On Hold'],
-    ['DROPPED', 'Dropped'],
-    ['REPEATING', anime ? 'Rewatching' : 'Rereading'],
-  ];
-}
+const STATUS_LABEL = (type: MediaType): [Status, string][] => [
+  ['WATCHING', type === 'anime' ? 'Viendo' : 'Leyendo'],
+  ['COMPLETED', 'Completado'],
+  ['PAUSED', 'En pausa'],
+  ['DROPPED', 'Dropeado'],
+  ['PLANNING', 'Pendiente'],
+];
 
-function LinkChip({ l }: { l: LinkT }) {
-  let host = '';
-  try {
-    host = new URL(l.url).hostname.replace(/^www\./, '');
-  } catch {
-    host = '';
-  }
-  const icon = l.icon || (host ? `https://www.google.com/s2/favicons?sz=64&domain=${host}` : '');
-  return (
-    <a href={l.url} target="_blank" rel="noopener noreferrer" className="link-chip">
-      {icon && <img className="link-ico" src={icon} alt="" />}
-      <span>{l.site}</span>
-    </a>
-  );
+function hueOf(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360;
+  return h;
 }
 
 export default function Detail() {
@@ -41,6 +31,8 @@ export default function Detail() {
   const type = params.type as MediaType;
   const id = Number(params.id);
   const navigate = useNavigate();
+  const status = useAuthStatus();
+  const other: ServiceId = svc === 'mal' ? 'anilist' : 'mal';
 
   const detail = useQuery({
     queryKey: ['detail', svc, type, id],
@@ -52,56 +44,72 @@ export default function Detail() {
     queryFn: () => service.getExtras(svc, type, id),
     enabled: svc === 'mal',
   });
+  // Id del mismo título en el otro servicio: sirve para cambiar de fuente y para "Guardar en".
+  const counterpart = useQuery({
+    queryKey: ['counterpart', svc, type, id],
+    queryFn: () => service.getCounterpartId(svc, type, id, detail.data!.idMal),
+    enabled: !!detail.data,
+    staleTime: Infinity,
+  });
+  const otherId = counterpart.data ?? null;
+  const canSwitch = !!otherId && status[other];
+
+  const options: SegOption<ServiceId>[] = [
+    { id: 'mal', label: 'MAL' },
+    { id: 'anilist', label: 'AniList' },
+  ].map((o) => {
+    const o2 = o as SegOption<ServiceId>;
+    return o2.id === svc ? o2 : { ...o2, disabled: !canSwitch, title: canSwitch ? undefined : 'No disponible para este título' };
+  });
+
+  const merged: DetailT | null = detail.data
+    ? {
+        ...detail.data,
+        characters: extras.data?.characters ?? detail.data.characters,
+        streaming: extras.data?.streaming ?? detail.data.streaming,
+        externalLinks: extras.data?.externalLinks ?? detail.data.externalLinks,
+      }
+    : null;
 
   return (
-    <div className="app">
-      <Header />
-      <main className="content">
-        <div className="detail-topbar">
-          <button className="back" onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/'))}>
-            ← Back
-          </button>
-          {detail.data && (
-            <a className="open-link" href={detail.data.siteUrl} target="_blank" rel="noopener noreferrer">
-              ↗ Open on {siteName(svc)}
-            </a>
-          )}
-        </div>
-        {detail.isPending && <div className="empty">Loading details…</div>}
-        {detail.isError && <div className="banner err">{(detail.error as Error).message}</div>}
-        {detail.data && (
+    <>
+      <SubHeader backLabel="Mi lista" path={`~/${type}/${merged ? slugify(merged.title) : '…'}`}>
+        <Segmented
+          label="Fuente de los datos"
+          value={svc}
+          options={options}
+          onChange={(s) => {
+            if (s !== svc && otherId) navigate(`/detail/${s}/${type}/${otherId}`, { replace: true });
+          }}
+        />
+      </SubHeader>
+      <main className="container detail">
+        {detail.isPending && <div className="empty">Cargando detalle…</div>}
+        {detail.isError && (
+          <div className="banner err">
+            <p>{(detail.error as Error).message}</p>
+          </div>
+        )}
+        {merged && (
           <DetailBody
             key={`${svc}-${type}-${id}`}
-            d={{
-              ...detail.data,
-              characters: extras.data?.characters ?? detail.data.characters,
-              streaming: extras.data?.streaming ?? detail.data.streaming,
-              externalLinks: extras.data?.externalLinks ?? detail.data.externalLinks,
-            }}
+            d={merged}
             loadingExtras={svc === 'mal' && extras.isPending}
+            otherId={canSwitch ? otherId : null}
           />
         )}
       </main>
-    </div>
+    </>
   );
 }
 
-function DetailBody({ d, loadingExtras }: { d: DetailT; loadingExtras: boolean }) {
+function DetailBody({ d, loadingExtras, otherId }: { d: DetailT; loadingExtras: boolean; otherId: number | null }) {
   const toast = useToast();
   const queryClient = useQueryClient();
-  const totalLabel = d.type === 'anime' ? 'Episodes' : 'Chapters';
-  const behind = d.airingEp != null ? Math.max(0, d.airingEp - (d.my.progress || 0)) : 0;
+  const status = useAuthStatus();
+  const isAnime = d.type === 'anime';
 
-  const [entry, setEntry] = useState<EntryInput>({
-    status: d.my.status || 'WATCHING',
-    score: d.my.score || 0,
-    progress: d.my.progress || 0,
-    startDate: d.my.startDate || '',
-    finishDate: d.my.finishDate || '',
-  });
-  const patch = (p: Partial<EntryInput>) => setEntry((e) => ({ ...e, ...p }));
-
-  // Vista previa de la portada a tamaño completo; se cierra con clic fuera o Esc.
+  // --- Vista previa de la portada (clic fuera o Esc para cerrar) ---
   const [zoom, setZoom] = useState(false);
   useEffect(() => {
     if (!zoom) return;
@@ -110,186 +118,285 @@ function DetailBody({ d, loadingExtras }: { d: DetailT; loadingExtras: boolean }
     return () => window.removeEventListener('keydown', onKey);
   }, [zoom]);
 
-  const save = useMutation({
-    mutationFn: () => service.setEntry(d.provider, d.type, d.id, entry),
-    onSuccess: () => {
-      // Mantiene la lista en caché sincronizada con lo guardado.
-      queryClient.setQueryData<ServiceList>(['list', d.provider], (old) =>
+  // --- Panel "Mi lista" ---
+  const initial = useMemo<EntryInput>(
+    () => ({
+      status: d.my.status || 'WATCHING',
+      score: d.my.score || 0,
+      progress: d.my.progress || 0,
+      startDate: d.my.startDate || '',
+      finishDate: d.my.finishDate || '',
+    }),
+    [d.my],
+  );
+  const [entry, setEntry] = useState<EntryInput>(initial);
+  const [saved, setSaved] = useState<EntryInput>(initial);
+  const [saving, setSaving] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [targets, setTargets] = useState<Record<ServiceId, boolean>>({ mal: true, anilist: true });
+  const patch = (p: Partial<EntryInput>) => {
+    setFailed(false);
+    setEntry((e) => ({ ...e, ...p }));
+  };
+  const dirty = JSON.stringify(entry) !== JSON.stringify(saved);
+  const total = d.episodes || 0;
+  const clampProgress = (n: number) => Math.max(0, total ? Math.min(total, n) : n);
+
+  const showTargets = !!otherId && status.mal && status.anilist;
+  const chosen: ServiceId[] = showTargets
+    ? (['mal', 'anilist'] as ServiceId[]).filter((s) => targets[s])
+    : [d.provider];
+
+  const save = async () => {
+    setSaving(true);
+    const list = chosen.map((s) => ({ service: s, id: s === d.provider ? d.id : otherId! }));
+    const results = await service.setEntryEverywhere(d.type, list, entry, d.provider);
+    setSaving(false);
+
+    const ok = results.filter((r) => !r.error).map((r) => r.service);
+    const bad = results.filter((r) => r.error);
+    for (const s of ok) {
+      const nativeScore = convertScore(entry.score, d.provider, s);
+      const mediaId = s === d.provider ? d.id : otherId!;
+      queryClient.setQueryData<ServiceList>(['list', s], (old) =>
         old
           ? {
               ...old,
               [d.type]: old[d.type].map((x) =>
-                x.id === d.id ? { ...x, progress: entry.progress, score: entry.score } : x,
+                x.id === mediaId ? { ...x, progress: entry.progress, score: nativeScore } : x,
               ),
             }
           : old,
       );
-      queryClient.invalidateQueries({ queryKey: ['detail', d.provider, d.type, d.id] });
-      toast(`Saved on ${siteName(d.provider)}`);
-    },
-    onError: (e: Error) => toast(e.message, true),
-  });
+      queryClient.invalidateQueries({ queryKey: ['detail', s, d.type, mediaId] });
+    }
+    if (bad.length) {
+      setFailed(true);
+      toast(`Falló en ${bad.map((b) => siteName(b.service)).join(', ')}: ${bad[0].error}`, true);
+    }
+    if (ok.length) {
+      setSaved(entry);
+      if (!bad.length) toast(`Guardado en ${ok.map(siteName).join(' y ')}`);
+    }
+  };
 
-  const stat = (k: string, v: React.ReactNode) => (
-    <div className="stat">
-      <div className="k">{k}</div>
-      <div className="v">{v}</div>
-    </div>
+  const syncLabel = saving ? '● guardando…' : failed ? '● error al guardar' : dirty ? '● sin guardar' : '● sincronizado';
+  const syncCls = failed ? ' err' : dirty || saving ? ' dirty' : '';
+
+  // --- Datos derivados ---
+  const behind = d.airingEp != null ? Math.max(0, d.airingEp - (d.my.progress || 0)) : null;
+  const syn = cleanSynopsis(d.description);
+  const altTitles = [d.titles.english, d.titles.romaji, d.titles.native].filter(
+    (t, i, a) => t && t !== d.title && a.indexOf(t) === i,
   );
+
+  const cells: StatCell[] = [];
+  if (d.score) cells.push({ k: 'SCORE', v: `${d.score}/${d.scoreMax}` });
+  if (d.rank) cells.push({ k: 'RANKED', v: `#${fmtNum(d.rank)}` });
+  if (d.popularity) cells.push({ k: 'POPULARITY', v: `#${fmtNum(d.popularity)}` });
+  if (d.members != null) cells.push({ k: d.membersLabel.toUpperCase(), v: fmtNum(d.members) });
+  cells.push({ k: isAnime ? 'EPISODES' : 'CHAPTERS', v: d.episodes != null ? fmtNum(d.episodes) : '—' });
+  if (!isAnime && d.volumes) cells.push({ k: 'VOLUMES', v: fmtNum(d.volumes) });
+  if (d.airingEp != null) cells.push({ k: 'AIRED', v: fmtNum(d.airingEp) });
+  if (behind != null) cells.push({ k: 'BEHIND', v: fmtNum(behind) });
+  if (d.provider === 'mal' && d.source) cells.push({ k: 'SOURCE', v: d.source.charAt(0).toUpperCase() + d.source.slice(1) });
+
+  const studio = d.studios[0];
+  const h = hueOf(d.title);
 
   return (
     <>
-      {zoom && (
+      {zoom && d.image && (
         <div className="lightbox" role="dialog" aria-modal="true" aria-label={d.title} onClick={() => setZoom(false)}>
           <img src={d.image} alt={d.title} onClick={(e) => e.stopPropagation()} />
           <button className="lightbox-close" aria-label="Cerrar" onClick={() => setZoom(false)}>
-            ✕
+            <IconClose />
           </button>
         </div>
       )}
-      <div className="detail-head">
-        {d.image && (
-          <img
-            className="cover zoomable"
-            src={d.image}
-            alt={d.title}
-            title="Ver imagen completa"
-            onClick={() => setZoom(true)}
+
+      <section className="hero">
+        {d.image ? (
+          <button className="hero-cover zoomable" onClick={() => setZoom(true)} title="Ver imagen completa" aria-label="Ver imagen completa">
+            <img src={d.image} alt={d.title} />
+          </button>
+        ) : (
+          <div
+            className="hero-cover"
+            style={{ background: `linear-gradient(160deg, oklch(0.52 0.13 ${h}), oklch(0.26 0.08 ${h}))` }}
           />
         )}
-        <div className="detail-headinfo">
-          <div className="detail-title">{d.title}</div>
-          {d.titles.english && d.titles.english !== d.title && <div className="muted">{d.titles.english}</div>}
-          <div className="meta">
-            {d.format && <span className="tag">{d.format}</span>}
-            <span className="tag">{d.status}</span>
-            {d.season && <span className="tag">{d.season}</span>}
-            {behind > 0 && <span className="tag behind-tag">⏳ {behind} behind</span>}
+        <div className="hero-info">
+          <div className="hero-head">
+            <div className="row-wrap">
+              <span className={`pill${d.release === 'releasing' ? ' live' : ''}`}>● {d.status}</span>
+              {d.format && <span className="pill">{d.format}</span>}
+              {d.season && <span className="pill">{d.season}</span>}
+              {studio && <span className="pill">{studio}</span>}
+            </div>
+            <h1>{d.title}</h1>
+            {altTitles.length > 0 && <p className="alt-title">{altTitles.join(' · ')}</p>}
+          </div>
+          <StatPanel cells={cells} />
+          <div className="row-wrap gap10">
+            <a className="btn" href={d.siteUrl} target="_blank" rel="noopener noreferrer">
+              <IconArrowUpRight size={15} />
+              Abrir en {siteName(d.provider)}
+            </a>
+            {d.streaming.map((l) => (
+              <a key={l.url} className="btn" href={l.url} target="_blank" rel="noopener noreferrer">
+                <IconPlay />
+                {l.site}
+              </a>
+            ))}
           </div>
         </div>
-      </div>
+      </section>
 
-      <div className="stats">
-        {stat('Score', d.score ? `${d.score} /${d.scoreMax}` : '—')}
-        {stat('Ranked', d.rank ? `#${d.rank}` : '—')}
-        {stat('Popularity', d.popularity ? `#${d.popularity}` : '—')}
-        {stat(d.membersLabel, d.members != null ? d.members.toLocaleString() : '—')}
-        {stat(totalLabel, d.episodes ?? '—')}
-        {d.type === 'manga' && stat('Volumes', d.volumes ?? '—')}
-        {d.airingEp != null && stat('Aired', d.airingEp)}
-        {d.airingEp != null && stat('Behind', behind)}
-      </div>
+      <section className="dbody">
+        <div className="dmain">
+          {syn.text && (
+            <div className="dsec">
+              <span className="lbl">// SINOPSIS</span>
+              <p className="synopsis">{syn.text}</p>
+              {syn.source && <span className="src-line">fuente: {syn.source}</span>}
+            </div>
+          )}
+          {d.genres.length > 0 && (
+            <div className="dsec">
+              <span className="lbl">// GÉNEROS</span>
+              <div className="row-wrap">
+                {d.genres.map((g) => (
+                  <span key={g} className="pill">{g}</span>
+                ))}
+              </div>
+            </div>
+          )}
+          {d.characters.length > 0 && (
+            <div className="dsec lg">
+              <span className="lbl">// PERSONAJES</span>
+              <div className="chars">
+                {d.characters.map((c, i) => (
+                  <div className="char" key={`${c.name}-${i}`}>
+                    <span className="av" style={{ background: `oklch(0.45 0.1 ${hueOf(c.name)})` }}>
+                      {initials(c.name)}
+                      {c.image && <img src={c.image} alt="" loading="lazy" onError={(e) => (e.currentTarget.style.display = 'none')} />}
+                    </span>
+                    <span className="cn">
+                      <b title={c.name}>{c.name}</b>
+                      {c.role && <span>{c.role}</span>}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {loadingExtras && <span className="src-line">Cargando personajes y enlaces…</span>}
+          {d.externalLinks.length > 0 && (
+            <div className="dsec">
+              <span className="lbl">// ENLACES</span>
+              <div className="row-wrap">
+                {d.externalLinks.map((l: LinkT) => (
+                  <a key={l.url} className="pill" href={l.url} target="_blank" rel="noopener noreferrer">
+                    {l.site}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
 
-      <div className="section-title">My List</div>
-      <form
-        className="edit"
-        onSubmit={(e) => {
-          e.preventDefault();
-          save.mutate();
-        }}
-      >
-        <label>
-          Status
-          <select value={entry.status} onChange={(e) => patch({ status: e.target.value as Status })}>
-            {statusOptions(d.type).map(([v, l]) => (
-              <option key={v} value={v}>
-                {l}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="edit-row">
-          <label>
-            My Score (0–{d.my.scoreMax})
+        <aside className="mylist" aria-label="Mi lista">
+          <div className="mylist-head">
+            <h2>Mi lista</h2>
+            <span className={`sync-state${syncCls}`} role="status">{syncLabel}</span>
+          </div>
+
+          <div className="fgroup">
+            <span className="lbl">ESTADO</span>
+            <div className="st-row">
+              {STATUS_LABEL(d.type).map(([v, label]) => (
+                <button key={v} className={`st${entry.status === v ? ' on' : ''}`} aria-pressed={entry.status === v} onClick={() => patch({ status: v })}>
+                  {label}
+                </button>
+              ))}
+              {entry.status === 'REPEATING' && (
+                <button className="st on" aria-pressed="true">
+                  {isAnime ? 'Reviendo' : 'Releyendo'}
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="fgroup">
+            <label className="lbl" htmlFor="prog">PROGRESO · {isAnime ? 'EPISODIOS' : 'CAPÍTULOS'}</label>
+            <div className="prog-ctl">
+              <button className="mini" onClick={() => patch({ progress: clampProgress(entry.progress - 1) })} aria-label="Restar uno">−</button>
+              <input
+                id="prog"
+                className="field"
+                style={{ textAlign: 'center' }}
+                type="number"
+                inputMode="numeric"
+                min={0}
+                value={entry.progress}
+                onChange={(e) => patch({ progress: clampProgress(Number(e.target.value) || 0) })}
+              />
+              <button className="mini plus" onClick={() => patch({ progress: clampProgress(entry.progress + 1) })} aria-label="Sumar uno">+</button>
+            </div>
+            {d.next && isAnime && (
+              <span className="hint">Siguiente: EP {d.next.episode} · en {longCountdown(d.next)}</span>
+            )}
+          </div>
+
+          <div className="fgroup">
+            <label className="lbl" htmlFor="score">PUNTUACIÓN · 0–{d.my.scoreMax}</label>
             <input
+              id="score"
+              className="field"
               type="number"
               inputMode="numeric"
               min={0}
               max={d.my.scoreMax}
               value={entry.score}
-              onChange={(e) => patch({ score: Number(e.target.value) })}
+              onChange={(e) => patch({ score: Math.max(0, Math.min(d.my.scoreMax, Number(e.target.value) || 0)) })}
             />
-          </label>
-          <label>
-            Progress{d.episodes ? ` (/${d.episodes})` : ''}
-            <input
-              type="number"
-              inputMode="numeric"
-              min={0}
-              value={entry.progress}
-              onChange={(e) => patch({ progress: Number(e.target.value) })}
-            />
-          </label>
-        </div>
-        <div className="edit-row">
-          <label>
-            Start Date
-            <input type="date" value={entry.startDate} onChange={(e) => patch({ startDate: e.target.value })} />
-          </label>
-          <label>
-            Finish Date
-            <input type="date" value={entry.finishDate} onChange={(e) => patch({ finishDate: e.target.value })} />
-          </label>
-        </div>
-        <button type="submit" className="btn-accent save" disabled={save.isPending}>
-          {save.isPending ? 'Saving…' : 'Save'}
-        </button>
-      </form>
-
-      {d.genres.length > 0 && (
-        <>
-          <div className="section-title">Genres</div>
-          <div className="chips">{d.genres.map((g) => <span key={g} className="chip">{g}</span>)}</div>
-        </>
-      )}
-      {d.studios.length > 0 && (
-        <>
-          <div className="section-title">Studios</div>
-          <div className="chips">{d.studios.map((s) => <span key={s} className="chip">{s}</span>)}</div>
-        </>
-      )}
-      {d.source && (
-        <>
-          <div className="section-title">Source</div>
-          <div className="desc">{d.source}</div>
-        </>
-      )}
-      {d.description && (
-        <>
-          <div className="section-title">Synopsis</div>
-          <div className="desc" style={{ whiteSpace: 'pre-line' }}>{d.description}</div>
-        </>
-      )}
-      {d.streaming.length > 0 && (
-        <>
-          <div className="section-title">Streaming</div>
-          <div className="links">{d.streaming.map((l) => <LinkChip key={l.url} l={l} />)}</div>
-        </>
-      )}
-      {d.externalLinks.length > 0 && (
-        <>
-          <div className="section-title">External Links</div>
-          <div className="links">{d.externalLinks.map((l) => <LinkChip key={l.url} l={l} />)}</div>
-        </>
-      )}
-      {d.characters.length > 0 && (
-        <>
-          <div className="section-title">Characters</div>
-          <div className="chars">
-            {d.characters.map((c, i) => (
-              <div className="char" key={`${c.name}-${i}`}>
-                {c.image && <img className="cover" src={c.image} alt="" loading="lazy" />}
-                <div className="char-name">{c.name}</div>
-                {c.role && <div className="muted role">{c.role}</div>}
-              </div>
-            ))}
           </div>
-        </>
-      )}
-      {loadingExtras && <div className="notif-empty">Loading characters &amp; links…</div>}
-      <p className="muted foot">
-        <Link to="/">← Volver a la lista</Link>
-      </p>
+
+          <div className="two">
+            <div className="fgroup">
+              <label className="lbl" htmlFor="sd">INICIO</label>
+              <input id="sd" className="field" type="date" value={entry.startDate} onChange={(e) => patch({ startDate: e.target.value })} />
+            </div>
+            <div className="fgroup">
+              <label className="lbl" htmlFor="fd">FIN</label>
+              <input id="fd" className="field" type="date" value={entry.finishDate} onChange={(e) => patch({ finishDate: e.target.value })} />
+            </div>
+          </div>
+
+          {showTargets && (
+            <div className="save-in">
+              <span className="lbl">GUARDAR EN</span>
+              <div className="checks">
+                {(['mal', 'anilist'] as ServiceId[]).map((s) => (
+                  <label className="check" key={s}>
+                    <input
+                      type="checkbox"
+                      checked={targets[s]}
+                      onChange={(e) => setTargets((t) => ({ ...t, [s]: e.target.checked }))}
+                    />
+                    {siteName(s)}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <button className="save" onClick={save} disabled={saving || !chosen.length}>
+            {saving ? 'Guardando…' : 'Guardar cambios'}
+          </button>
+        </aside>
+      </section>
     </>
   );
 }

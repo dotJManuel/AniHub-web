@@ -1,49 +1,113 @@
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuthStatus } from '../hooks';
+import { useIsFetching, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAuthStatus, useTheme } from '../hooks';
+import * as service from '../lib/service';
+import type { ServiceId } from '../types';
+import { IconArrowLeft, IconBell, IconMoon, IconRefresh, IconSliders, IconSun } from './Icons';
+import Segmented, { type SegOption } from './Segmented';
 
-const svgProps = {
-  viewBox: '0 0 24 24',
-  width: 18,
-  height: 18,
-  fill: 'none',
-  stroke: 'currentColor',
-  strokeWidth: 2,
-  strokeLinecap: 'round' as const,
-  strokeLinejoin: 'round' as const,
-};
+export const SOURCES: SegOption<ServiceId>[] = [
+  { id: 'mal', label: 'MyAnimeList' },
+  { id: 'anilist', label: 'AniList' },
+];
 
-export default function Header({ onRefresh, children }: { onRefresh?: () => void; children?: React.ReactNode }) {
+// Notificaciones sin leer de AniList (MAL no tiene API de notificaciones).
+export function useUnreadCount() {
   const status = useAuthStatus();
+  return useQuery({
+    queryKey: ['unread'],
+    queryFn: service.getUnreadCount,
+    enabled: status.anilist,
+    refetchInterval: 5 * 60_000,
+  });
+}
+
+export function ThemeButton() {
+  const { resolved, toggle } = useTheme();
   return (
-    <header className="bar">
-      <div className="row spread">
-        <h1>AniHub</h1>
-        <div className="row">
+    <button className="ibtn" onClick={toggle} aria-label="Cambiar tema" title="Cambiar tema">
+      {resolved === 'dark' ? <IconSun /> : <IconMoon />}
+    </button>
+  );
+}
+
+export function Logo() {
+  return (
+    <Link to="/" className="logo" aria-label="AniHub — inicio">
+      <span className="logo-mark mono">&gt;_</span>
+      <span className="logo-word mono">anihub</span>
+    </Link>
+  );
+}
+
+// Header principal (Lista): logo, fuente MAL | AniList y acciones.
+export function MainHeader({ source, onSource }: { source: ServiceId; onSource: (s: ServiceId) => void }) {
+  const status = useAuthStatus();
+  const queryClient = useQueryClient();
+  const syncing = useIsFetching({ queryKey: ['list'] }) > 0;
+  const unread = useUnreadCount();
+
+  const sync = () => {
+    queryClient.invalidateQueries({ queryKey: ['list'] });
+    queryClient.invalidateQueries({ queryKey: ['unread'] });
+    queryClient.invalidateQueries({ queryKey: ['notifications'] });
+  };
+
+  return (
+    <header className="hdr">
+      <div className="hdr-in container">
+        <Logo />
+        <Segmented className="hdr-seg" label="Fuente" value={source} options={SOURCES} onChange={onSource} />
+        <div className="grow" />
+        <div className="hdr-actions">
+          <button className={`ibtn${syncing ? ' spin' : ''}`} onClick={sync} aria-label="Sincronizar" title="Sincronizar">
+            <IconRefresh />
+          </button>
           {status.anilist && (
-            <Link to="/notifications" className="iconbtn" title="Notifications" aria-label="Notifications">
-              <svg {...svgProps}>
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-              </svg>
+            <Link to="/notifications" className="ibtn hide-m" aria-label="Notificaciones" title="Notificaciones">
+              <IconBell />
+              {!!unread.data && <span className="dot" />}
             </Link>
           )}
-          {onRefresh && (
-            <button className="iconbtn" onClick={onRefresh} title="Refresh" aria-label="Refresh">
-              <svg {...svgProps}>
-                <polyline points="23 4 23 10 17 10" />
-                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-              </svg>
-            </button>
-          )}
-          <Link to="/settings" className="iconbtn" title="Settings" aria-label="Settings">
-            <svg {...svgProps}>
-              <circle cx="12" cy="12" r="3" />
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-            </svg>
+          <ThemeButton />
+          <Link to="/settings" className="ibtn hide-m" aria-label="Ajustes" title="Ajustes">
+            <IconSliders />
           </Link>
         </div>
       </div>
-      {children}
+    </header>
+  );
+}
+
+// Header secundario (Detalle, Ajustes, Actividad): volver + ruta + acciones.
+export function SubHeader({
+  backTo = '/',
+  backLabel,
+  path,
+  narrow,
+  children,
+  showTheme = true,
+}: {
+  backTo?: string;
+  backLabel: string;
+  path: string;
+  narrow?: boolean;
+  children?: ReactNode;
+  showTheme?: boolean;
+}) {
+  return (
+    <header className="hdr">
+      <div className={`hdr-in container${narrow ? ' narrow' : ''}`} style={{ gap: 12 }}>
+        <Link to={backTo} className="btn">
+          <IconArrowLeft size={16} />
+          {backLabel}
+        </Link>
+        <span className="route-path">{path}</span>
+        <div className="grow" />
+        {children}
+        {showTheme && <ThemeButton />}
+      </div>
     </header>
   );
 }

@@ -3,15 +3,24 @@ export type MediaType = 'anime' | 'manga';
 export type Status = 'WATCHING' | 'PLANNING' | 'COMPLETED' | 'DROPPED' | 'PAUSED' | 'REPEATING';
 export type Release = 'releasing' | 'finished' | 'other';
 
+// Próximo episodio a emitir: `at` es el instante (epoch en segundos) en que sale.
+export interface NextEpisode {
+  episode: number;
+  at: number;
+}
+
 export interface ListItem {
   provider: ServiceId;
   id: number;
+  // Solo AniList lo trae en la lista; en MAL el id de MAL ya es el idMal.
+  idMal?: number | null;
   title: string;
   total: number;
   image: string;
   status: Status;
   release: Release;
   airingEp: number | null;
+  next: NextEpisode | null;
   progress: number;
   score: number;
 }
@@ -47,6 +56,8 @@ export interface MyEntry {
 export interface Detail {
   provider: ServiceId;
   id: number;
+  // Id del mismo título en MyAnimeList (en MAL es el propio id).
+  idMal: number | null;
   type: MediaType;
   siteUrl: string;
   title: string;
@@ -60,7 +71,9 @@ export interface Detail {
   members: number | null;
   membersLabel: string;
   status: string;
+  release: Release;
   airingEp: number | null;
+  next: NextEpisode | null;
   episodes: number | null;
   volumes: number | null;
   format: string;
@@ -89,10 +102,16 @@ export interface EntryInput {
   finishDate: string;
 }
 
+export type NotificationKind = 'episode' | 'site' | 'follow' | 'activity' | 'thread' | 'data' | 'other';
+
 export interface Notification {
   id: number;
+  kind: NotificationKind;
   text: string;
   url: string;
   image: string;
   createdAt: number;
 }
+
+export type ScaleSetting = 'orig' | '10' | '100';
+export type ThemePref = 'system' | 'light' | 'dark';

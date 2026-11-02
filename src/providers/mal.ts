@@ -87,6 +87,7 @@ export async function getCurrent(type: MediaType): Promise<ListItem[]> {
       image: node.main_picture?.large || node.main_picture?.medium || '',
       status: FROM_MAL[ls.status] || 'WATCHING',
       airingEp: null,
+      next: null,
       release: releaseOf(node.status),
       progress: (type === 'anime' ? ls.num_episodes_watched : ls.num_chapters_read) || 0,
       score: ls.score || 0,
@@ -162,6 +163,7 @@ export async function getDetail(id: number, type: MediaType): Promise<Detail> {
   return {
     provider: 'mal',
     id: m.id,
+    idMal: m.id,
     type,
     siteUrl: `https://myanimelist.net/${type}/${m.id}`,
     title: m.title,
@@ -179,7 +181,9 @@ export async function getDetail(id: number, type: MediaType): Promise<Detail> {
     members: m.num_list_users ?? null,
     membersLabel: 'Members',
     status: humanStatus(m.status),
+    release: releaseOf(m.status),
     airingEp: null,
+    next: null,
     episodes: (type === 'anime' ? m.num_episodes : m.num_chapters) || null,
     volumes: m.num_volumes || null,
     format: m.media_type ? String(m.media_type).toUpperCase() : '',
@@ -212,4 +216,10 @@ export async function saveEntry(id: number, type: MediaType, entry: EntryInput) 
     finish_date: entry.finishDate || '',
   }).toString();
   return apiFetch(`/${type}/${id}/my_list_status`, { method: 'PUT', body });
+}
+
+// Usuario conectado (para mostrar @nombre en Ajustes).
+export async function getMe(): Promise<{ id: number; name: string }> {
+  const me = await apiFetch('/users/@me');
+  return { id: me.id, name: me.name };
 }

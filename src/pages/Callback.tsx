@@ -19,19 +19,17 @@ export default function Callback() {
   }, [navigate]);
 
   return (
-    <div className="app">
-      <main className="content">
-        {error ? (
-          <div className="banner err">
-            {error}
-            <br />
-            <br />
-            <Link to="/settings" className="btn">Volver a Ajustes</Link>
-          </div>
-        ) : (
-          <div className="empty">Conectando…</div>
-        )}
-      </main>
-    </div>
+    <main className="container page">
+      {error ? (
+        <div className="banner err">
+          <p>{error}</p>
+          <Link to="/settings" className="btn">
+            Volver a Ajustes
+          </Link>
+        </div>
+      ) : (
+        <div className="empty">Conectando…</div>
+      )}
+    </main>
   );
 }

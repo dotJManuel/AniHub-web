@@ -1,85 +1,86 @@
-import type { ListItem, MediaType, ServiceId } from '../types';
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { displayScore, fmtNum, initials, shortCountdown } from '../lib/format';
+import type { ListItem, MediaType, ScaleSetting } from '../types';
+import { IconStar } from './Icons';
 
-export const siteName = (s: ServiceId) => (s === 'mal' ? 'MyAnimeList' : 'AniList');
-const siteBase = (s: ServiceId) => (s === 'mal' ? 'https://myanimelist.net' : 'https://anilist.co');
+export const siteName = (s: 'mal' | 'anilist') => (s === 'mal' ? 'MyAnimeList' : 'AniList');
 
-// Episodios de atraso para un anime en emisión (0 si al día o no aplica).
-export function behindCount(it: ListItem): number {
-  return it.airingEp != null && it.airingEp > it.progress ? it.airingEp - it.progress : 0;
+function hue(title: string): number {
+  let h = 0;
+  for (let i = 0; i < title.length; i++) h = (h * 31 + title.charCodeAt(i)) % 360;
+  return h;
 }
 
 interface Props {
   item: ListItem;
   type: MediaType;
+  scale: ScaleSetting;
   busy: boolean;
-  onOpen: () => void;
   onStep: (delta: 1 | -1) => void;
 }
 
-// Tile tipo póster: portada de fondo, info superpuesta sobre un degradado.
-export default function Tile({ item, type, busy, onOpen, onStep }: Props) {
-  const b = behindCount(item);
+// Tarjeta de lista: portada 2:3 a sangre completa; título, progreso y −/+1 encima.
+export default function Tile({ item, type, scale, busy, onStep }: Props) {
+  const [broken, setBroken] = useState(false);
+  const h = hue(item.title);
+  const pct = item.total ? Math.min(100, Math.round((item.progress / item.total) * 100)) : null;
+  const unit = type === 'anime' ? 'EP' : 'CH';
+  const showImg = !!item.image && !broken;
+
   return (
-    <div className={`tile${b ? ' is-behind' : ''}`} onClick={onOpen} title="View details">
-      {item.image && (
-        <img
-          className="tile-img"
-          src={item.image}
-          alt=""
-          loading="lazy"
-          onError={(e) => (e.currentTarget.style.visibility = 'hidden')}
-        />
-      )}
-      <div className="tile-top">
-        <div className="tile-top-row">
-          <a
-            className="tile-open"
-            href={`${siteBase(item.provider)}/${type}/${item.id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            title={`Open on ${siteName(item.provider)}`}
-            aria-label={`Open on ${siteName(item.provider)}`}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M7 17 17 7" />
-              <path d="M8 7h9v9" />
-            </svg>
-          </a>
-          {item.score > 0 && <span className="tile-chip tile-score">★ {item.score}</span>}
-        </div>
-        {b > 0 && <span className="tile-chip behind-chip" title="Episodes behind">⏳ {b}</span>}
-      </div>
-      <div className="tile-bottom">
-        <div className="tile-title">{item.title}</div>
-        <div className="tile-row">
-          <span className="tile-progress">
-            <b>{item.progress}</b> {item.total ? `/ ${item.total}` : ''}
+    <article className="card">
+      <Link
+        className="cover"
+        to={`/detail/${item.provider}/${type}/${item.id}`}
+        aria-label={`Ver ${item.title}`}
+        style={{ background: `linear-gradient(160deg, oklch(0.52 0.13 ${h}), oklch(0.28 0.08 ${h}))` }}
+      >
+        {showImg ? (
+          <img className="cover-img" src={item.image} alt="" loading="lazy" onError={() => setBroken(true)} />
+        ) : (
+          <>
+            <span className="hatch" />
+            <span className="initials">{initials(item.title)}</span>
+          </>
+        )}
+        {item.score > 0 && (
+          <span className="badge score">
+            <IconStar />
+            {displayScore(item.score, item.provider, scale)}
           </span>
-          <div className="tile-steps">
-            <button
-              disabled={busy}
-              title="Remove 1"
-              onClick={(e) => {
-                e.stopPropagation();
-                onStep(-1);
-              }}
-            >
-              −
-            </button>
-            <button
-              disabled={busy}
-              title="Add 1"
-              onClick={(e) => {
-                e.stopPropagation();
-                onStep(1);
-              }}
-            >
-              +1
-            </button>
+        )}
+        {item.next && type === 'anime' && (
+          <span className="badge next">
+            EP {item.next.episode} · {shortCountdown(item.next)}
+          </span>
+        )}
+      </Link>
+      <span className="scrim" />
+      <div className="overlay">
+        <h3 className="title2">{item.title}</h3>
+        <div className="prog">
+          <div className="prog-row">
+            <span>
+              <b>
+                <span className="unit">{unit}</span> {item.total ? `${fmtNum(item.progress)} / ${fmtNum(item.total)}` : fmtNum(item.progress)}
+              </b>
+            </span>
+            <span className="pct">{pct === null ? 'ongoing' : `${pct}%`}</span>
+          </div>
+          <div className="bar">
+            <i style={{ width: pct === null ? '100%' : `${pct}%` }} />
           </div>
         </div>
+        <div className="steps">
+          <button className="step" disabled={busy} onClick={() => onStep(-1)} aria-label="Restar uno">
+            −
+          </button>
+          <button className="step plus" disabled={busy} onClick={() => onStep(1)} aria-label="Sumar uno">
+            +1
+          </button>
+        </div>
       </div>
-    </div>
+    </article>
   );
 }

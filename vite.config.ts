@@ -48,8 +48,8 @@ export default defineConfig({
         short_name: 'AniHub',
         description: 'Tu lista de MyAnimeList y AniList en un solo lugar.',
         lang: 'es',
-        theme_color: '#0f1116',
-        background_color: '#0f1116',
+        theme_color: '#0B0C0F',
+        background_color: '#0B0C0F',
         display: 'standalone',
         orientation: 'portrait',
         start_url: '/',
@@ -66,6 +66,16 @@ export default defineConfig({
         // Nunca interceptar el retorno de OAuth ni el proxy.
         navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [
+          {
+            // Tipografías (Geist / Geist Mono): se sirven offline tras la primera carga.
+            urlPattern: ({ url }) => url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com',
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'fonts',
+              expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
           {
             // Portadas y avatares de AniList/MAL: se muestran offline tras la primera carga.
             urlPattern: ({ request }) => request.destination === 'image',

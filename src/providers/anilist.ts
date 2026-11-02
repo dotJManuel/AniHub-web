@@ -6,7 +6,9 @@ import type {
   EntryInput,
   ListItem,
   MediaType,
+  NextEpisode,
   Notification,
+  NotificationKind,
   Release,
   Status,
 } from '../types';
@@ -29,22 +31,26 @@ const TO_ANI: Record<Status, string> = {
 };
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-async function gql(query: string, variables: Record<string, unknown> = {}): Promise<any> {
+async function gql(
+  query: string,
+  variables: Record<string, unknown> = {},
+  { auth = true }: { auth?: boolean } = {},
+): Promise<any> {
   const token = storage.getAnilistToken();
-  if (!token) throw new Error('No autenticado en AniList.');
+  if (auth && !token) throw new Error('No autenticado en AniList.');
   const res = await fetch(ANILIST.graphql, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Accept: 'application/json',
-      Authorization: `Bearer ${token}`,
+      ...(auth && token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify({ query, variables }),
   });
   const json = await res.json();
   if (json.errors?.length) {
     const e = json.errors[0];
-    if (e.status === 400 || /token/i.test(e.message || '')) {
+    if (auth && (e.status === 400 || /token/i.test(e.message || ''))) {
       storage.clearProvider('anilist');
       throw new Error('La sesión de AniList no es válida. Vuelve a conectar.');
     }
@@ -53,7 +59,7 @@ async function gql(query: string, variables: Record<string, unknown> = {}): Prom
   return json.data;
 }
 
-async function getViewer(): Promise<{ id: number; name: string }> {
+export async function getViewer(): Promise<{ id: number; name: string }> {
   const cached = storage.getAnilistUser();
   if (cached) return cached;
   const data = await gql('query { Viewer { id name } }');
@@ -75,7 +81,8 @@ query ($userId: Int, $type: MediaType) {
           status
           episodes
           chapters
-          nextAiringEpisode { episode }
+          idMal
+          nextAiringEpisode { episode timeUntilAiring }
           title { userPreferred }
           coverImage { large }
         }
@@ -83,6 +90,12 @@ query ($userId: Int, $type: MediaType) {
     }
   }
 }`;
+
+function nextOf(n: any): NextEpisode | null {
+  return n && n.episode != null && n.timeUntilAiring != null
+    ? { episode: n.episode, at: Math.floor(Date.now() / 1000) + n.timeUntilAiring }
+    : null;
+}
 
 function releaseOf(status: string): Release {
   return status === 'RELEASING' ? 'releasing' : status === 'FINISHED' ? 'finished' : 'other';
@@ -97,6 +110,7 @@ export async function getCurrent(type: MediaType): Promise<ListItem[]> {
       items.push({
         provider: 'anilist',
         id: e.media.id,
+        idMal: e.media.idMal || null,
         title: e.media.title.userPreferred,
         total: (type === 'anime' ? e.media.episodes : e.media.chapters) || 0,
         image: e.media.coverImage?.large || '',
@@ -104,6 +118,7 @@ export async function getCurrent(type: MediaType): Promise<ListItem[]> {
         release: releaseOf(e.media.status),
         // Último episodio emitido (el siguiente a emitir menos 1).
         airingEp: e.media.nextAiringEpisode ? e.media.nextAiringEpisode.episode - 1 : null,
+        next: nextOf(e.media.nextAiringEpisode),
         progress: e.progress || 0,
         score: e.score || 0,
       });
@@ -156,7 +171,7 @@ query ($id: Int, $type: MediaType) {
     averageScore meanScore popularity favourites
     rankings { rank type allTime }
     status episodes chapters volumes format season seasonYear
-    nextAiringEpisode { episode }
+    nextAiringEpisode { episode timeUntilAiring }
     genres
     description(asHtml: false)
     studios(isMain: true) { nodes { name } }
@@ -181,6 +196,7 @@ export async function getDetail(id: number, type: MediaType): Promise<Detail> {
   return {
     provider: 'anilist',
     id: m.id,
+    idMal: m.idMal || null,
     type,
     siteUrl: m.siteUrl,
     title: m.title.userPreferred,
@@ -194,7 +210,9 @@ export async function getDetail(id: number, type: MediaType): Promise<Detail> {
     members: m.favourites ?? null,
     membersLabel: 'Favorites',
     status: humanStatus(m.status),
+    release: releaseOf(m.status),
     airingEp: m.nextAiringEpisode ? m.nextAiringEpisode.episode - 1 : null,
+    next: nextOf(m.nextAiringEpisode),
     episodes: (type === 'anime' ? m.episodes : m.chapters) ?? null,
     volumes: m.volumes ?? null,
     format: m.format || '',
@@ -237,10 +255,7 @@ export async function saveEntry(id: number, entry: EntryInput) {
   );
 }
 
-const NOTIF_QUERY = `
-query {
-  Page(perPage: 25) {
-    notifications(resetNotificationCount: false) {
+const NOTIF_FIELDS = `
       __typename
       ... on AiringNotification { id type episode createdAt media { title { userPreferred } siteUrl coverImage { medium } } }
       ... on FollowingNotification { id type createdAt user { name siteUrl avatar { medium } } }
@@ -252,50 +267,112 @@ query {
       ... on RelatedMediaAdditionNotification { id type createdAt media { title { userPreferred } siteUrl coverImage { medium } } }
       ... on MediaDataChangeNotification { id type createdAt media { title { userPreferred } siteUrl coverImage { medium } } }
       ... on MediaMergeNotification { id type createdAt media { title { userPreferred } siteUrl coverImage { medium } } }
-      ... on MediaDeletionNotification { id type createdAt deletedMediaTitle }
-    }
+      ... on MediaDeletionNotification { id type createdAt deletedMediaTitle }`;
+
+const notifQuery = (reset: boolean) => `
+query {
+  Page(perPage: 25) {
+    notifications(resetNotificationCount: ${reset}) { ${NOTIF_FIELDS} }
   }
 }`;
 
-function notifText(n: any): { text: string; url?: string; image?: string } | null {
-  const user = n.user?.name || 'Someone';
+function notifText(n: any): { kind: NotificationKind; text: string; url?: string; image?: string } | null {
+  const user = n.user?.name || 'Alguien';
   const media = n.media?.title?.userPreferred || '';
   const cover = n.media?.coverImage?.medium || '';
   const avatar = n.user?.avatar?.medium || '';
   switch (n.__typename) {
     case 'AiringNotification':
-      return { text: `Episode ${n.episode} of ${media} aired`, url: n.media?.siteUrl, image: cover };
-    case 'FollowingNotification':
-      return { text: `${user} started following you`, url: n.user?.siteUrl, image: avatar };
-    case 'ActivityMentionNotification':
-      return { text: `${user} mentioned you`, image: avatar };
-    case 'ActivityReplyNotification':
-      return { text: `${user} replied to your activity`, image: avatar };
-    case 'ActivityLikeNotification':
-      return { text: `${user} liked your activity`, image: avatar };
-    case 'ActivityReplyLikeNotification':
-      return { text: `${user} liked your reply`, image: avatar };
-    case 'ThreadCommentReplyNotification':
-      return { text: `${user} replied in ${n.thread?.title || 'a thread'}`, url: n.thread?.siteUrl, image: avatar };
+      return { kind: 'episode', text: `Episodio ${n.episode} de ${media}`, url: n.media?.siteUrl, image: cover };
     case 'RelatedMediaAdditionNotification':
-      return { text: `${media} was added to the site`, url: n.media?.siteUrl, image: cover };
+      return { kind: 'site', text: media, url: n.media?.siteUrl, image: cover };
+    case 'FollowingNotification':
+      return { kind: 'follow', text: `${user} empezó a seguirte`, url: n.user?.siteUrl, image: avatar };
+    case 'ActivityMentionNotification':
+      return { kind: 'activity', text: `${user} te mencionó`, image: avatar };
+    case 'ActivityReplyNotification':
+      return { kind: 'activity', text: `${user} respondió a tu actividad`, image: avatar };
+    case 'ActivityLikeNotification':
+      return { kind: 'activity', text: `A ${user} le gustó tu actividad`, image: avatar };
+    case 'ActivityReplyLikeNotification':
+      return { kind: 'activity', text: `A ${user} le gustó tu respuesta`, image: avatar };
+    case 'ThreadCommentReplyNotification':
+      return { kind: 'thread', text: `${user} respondió en ${n.thread?.title || 'un hilo'}`, url: n.thread?.siteUrl, image: avatar };
     case 'MediaDataChangeNotification':
-      return { text: `${media} had data changes`, url: n.media?.siteUrl, image: cover };
+      return { kind: 'data', text: `${media}: datos actualizados`, url: n.media?.siteUrl, image: cover };
     case 'MediaMergeNotification':
-      return { text: `${media} was merged`, url: n.media?.siteUrl, image: cover };
+      return { kind: 'data', text: `${media}: entradas fusionadas`, url: n.media?.siteUrl, image: cover };
     case 'MediaDeletionNotification':
-      return { text: `${n.deletedMediaTitle || 'An entry'} was deleted` };
+      return { kind: 'data', text: `${n.deletedMediaTitle || 'Una entrada'} fue eliminada` };
     default:
       return null;
   }
 }
 
-export async function getNotifications(): Promise<Notification[]> {
-  const data = await gql(NOTIF_QUERY);
+function mapNotifications(data: any): Notification[] {
   const out: Notification[] = [];
   for (const n of data.Page?.notifications || []) {
     const m = notifText(n);
-    if (m) out.push({ id: n.id, text: m.text, url: m.url || '', image: m.image || '', createdAt: n.createdAt || 0 });
+    if (m) {
+      out.push({
+        id: n.id,
+        kind: m.kind,
+        text: m.text,
+        url: m.url || '',
+        image: m.image || '',
+        createdAt: n.createdAt || 0,
+      });
+    }
   }
   return out;
+}
+
+export async function getNotifications(): Promise<Notification[]> {
+  return mapNotifications(await gql(notifQuery(false)));
+}
+
+// Notificaciones sin leer (AniList no marca cada una: son las N más recientes).
+export async function getUnreadCount(): Promise<number> {
+  const data = await gql('query { Viewer { unreadNotificationCount } }');
+  return data.Viewer?.unreadNotificationCount || 0;
+}
+
+// `resetNotificationCount: true` pone el contador de AniList en 0 al cargar.
+export async function markNotificationsRead(): Promise<void> {
+  await gql(notifQuery(true));
+}
+
+// --- Consultas públicas (sin token) para cruzar MAL <-> AniList ---------------
+
+// Próximo episodio de varios animes de MAL, por idMal, en una sola petición.
+export async function getAiringByMalIds(
+  malIds: number[],
+): Promise<Map<number, { next: NextEpisode | null; airingEp: number | null }>> {
+  const out = new Map<number, { next: NextEpisode | null; airingEp: number | null }>();
+  const ids = [...new Set(malIds)].slice(0, 50);
+  if (!ids.length) return out;
+  const data = await gql(
+    `query ($ids: [Int]) {
+      Page(perPage: 50) {
+        media(idMal_in: $ids, type: ANIME) { idMal nextAiringEpisode { episode timeUntilAiring } }
+      }
+    }`,
+    { ids },
+    { auth: false },
+  );
+  for (const m of data.Page?.media || []) {
+    const next = nextOf(m.nextAiringEpisode);
+    out.set(m.idMal, { next, airingEp: next ? next.episode - 1 : null });
+  }
+  return out;
+}
+
+// Id de AniList de un título de MAL (null si no existe).
+export async function findIdByMal(malId: number, type: MediaType): Promise<number | null> {
+  const data = await gql(
+    `query ($idMal: Int, $type: MediaType) { Media(idMal: $idMal, type: $type) { id } }`,
+    { idMal: Number(malId), type: type.toUpperCase() },
+    { auth: false },
+  );
+  return data.Media?.id ?? null;
 }
