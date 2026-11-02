@@ -163,7 +163,6 @@ export async function getDetail(id: number, type: MediaType): Promise<Detail> {
   return {
     provider: 'mal',
     id: m.id,
-    idMal: m.id,
     type,
     siteUrl: `https://myanimelist.net/${type}/${m.id}`,
     title: m.title,

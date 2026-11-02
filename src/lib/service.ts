@@ -7,28 +7,11 @@ import type {
   Detail,
   EntryInput,
   Extras,
-  ListItem,
   MediaType,
   Notification,
   ServiceId,
   ServiceList,
 } from '../types';
-
-// MAL no tiene "próximo episodio": se pide a AniList por idMal (consulta pública, un
-// solo request). Si falla, las tarjetas simplemente no muestran la insignia.
-async function withAiring(items: ListItem[]): Promise<ListItem[]> {
-  const airing = items.filter((i) => i.release === 'releasing');
-  if (!airing.length) return items;
-  try {
-    const map = await anilist.getAiringByMalIds(airing.map((i) => i.id));
-    return items.map((i) => {
-      const hit = map.get(i.id);
-      return hit ? { ...i, next: hit.next, airingEp: hit.airingEp } : i;
-    });
-  } catch {
-    return items;
-  }
-}
 
 export async function getList(service: ServiceId): Promise<ServiceList> {
   const out: ServiceList = { service, anime: [], manga: [], errors: [] };
@@ -42,7 +25,6 @@ export async function getList(service: ServiceId): Promise<ServiceList> {
       }
     }),
   );
-  if (service === 'mal') out.anime = await withAiring(out.anime);
   if (!out.errors.length) storage.markSynced(service);
   return out;
 }

@@ -12,8 +12,6 @@ export interface NextEpisode {
 export interface ListItem {
   provider: ServiceId;
   id: number;
-  // Solo AniList lo trae en la lista; en MAL el id de MAL ya es el idMal.
-  idMal?: number | null;
   title: string;
   total: number;
   image: string;
@@ -56,8 +54,6 @@ export interface MyEntry {
 export interface Detail {
   provider: ServiceId;
   id: number;
-  // Id del mismo título en MyAnimeList (en MAL es el propio id).
-  idMal: number | null;
   type: MediaType;
   siteUrl: string;
   title: string;

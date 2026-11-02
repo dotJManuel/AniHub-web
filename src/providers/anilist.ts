@@ -81,7 +81,6 @@ query ($userId: Int, $type: MediaType) {
           status
           episodes
           chapters
-          idMal
           nextAiringEpisode { episode timeUntilAiring }
           title { userPreferred }
           coverImage { large }
@@ -110,7 +109,6 @@ export async function getCurrent(type: MediaType): Promise<ListItem[]> {
       items.push({
         provider: 'anilist',
         id: e.media.id,
-        idMal: e.media.idMal || null,
         title: e.media.title.userPreferred,
         total: (type === 'anime' ? e.media.episodes : e.media.chapters) || 0,
         image: e.media.coverImage?.large || '',
@@ -164,7 +162,7 @@ function humanStatus(s: string) {
 const DETAIL_QUERY = `
 query ($id: Int, $type: MediaType) {
   Media(id: $id, type: $type) {
-    id idMal type siteUrl
+    id type siteUrl
     title { userPreferred romaji english native }
     coverImage { large }
     bannerImage
@@ -196,7 +194,6 @@ export async function getDetail(id: number, type: MediaType): Promise<Detail> {
   return {
     provider: 'anilist',
     id: m.id,
-    idMal: m.idMal || null,
     type,
     siteUrl: m.siteUrl,
     title: m.title.userPreferred,
@@ -340,30 +337,5 @@ export async function getUnreadCount(): Promise<number> {
 // `resetNotificationCount: true` pone el contador de AniList en 0 al cargar.
 export async function markNotificationsRead(): Promise<void> {
   await gql(notifQuery(true));
-}
-
-// --- Consultas públicas (sin token) para cruzar MAL <-> AniList ---------------
-
-// Próximo episodio de varios animes de MAL, por idMal, en una sola petición.
-export async function getAiringByMalIds(
-  malIds: number[],
-): Promise<Map<number, { next: NextEpisode | null; airingEp: number | null }>> {
-  const out = new Map<number, { next: NextEpisode | null; airingEp: number | null }>();
-  const ids = [...new Set(malIds)].slice(0, 50);
-  if (!ids.length) return out;
-  const data = await gql(
-    `query ($ids: [Int]) {
-      Page(perPage: 50) {
-        media(idMal_in: $ids, type: ANIME) { idMal nextAiringEpisode { episode timeUntilAiring } }
-      }
-    }`,
-    { ids },
-    { auth: false },
-  );
-  for (const m of data.Page?.media || []) {
-    const next = nextOf(m.nextAiringEpisode);
-    out.set(m.idMal, { next, airingEp: next ? next.episode - 1 : null });
-  }
-  return out;
 }
 
