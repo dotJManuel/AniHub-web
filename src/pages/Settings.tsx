@@ -3,7 +3,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import BottomNav from '../components/BottomNav';
 import { SubHeader } from '../components/Header';
 import Segmented from '../components/Segmented';
-import { redirectUri } from '../config';
 import { useAuthStatus, usePref, useScale, useTheme, useToast } from '../hooks';
 import * as auth from '../lib/auth';
 import { agoLabel } from '../lib/format';
@@ -14,7 +13,6 @@ import type { ScaleSetting, ServiceId, ThemePref } from '../types';
 const SECTIONS = [
   { id: 'cuentas', label: 'Cuentas' },
   { id: 'apariencia', label: 'Apariencia' },
-  { id: 'api', label: 'API · Client IDs' },
 ];
 
 function useLastSync(p: ServiceId) {
@@ -75,11 +73,6 @@ export default function Settings() {
   const [active, setActive] = useState('cuentas');
   const [msg, setMsg] = useState('');
 
-  const initial = storage.getSettings();
-  const [aniId, setAniId] = useState(initial.anilistClientId || '');
-  const [malId, setMalId] = useState(initial.malClientId || '');
-  const ids = auth.getClientIds();
-  const redirect = redirectUri();
 
   // Resalta en la navegación lateral la sección que está a la vista.
   useEffect(() => {
@@ -95,11 +88,8 @@ export default function Settings() {
     return () => io.disconnect();
   }, []);
 
-  const persistIds = () => storage.setSettings({ anilistClientId: aniId.trim(), malClientId: malId.trim() });
-
-  // Igual que antes: guarda los IDs escritos y lanza el login (lógica de OAuth sin cambios).
+  // Igual que antes: avisa y lanza el login (lógica de OAuth sin cambios). Los Client IDs ya no se editan aquí.
   const connect = (label: string, fn: () => void) => {
-    persistIds();
     setMsg(`Abriendo login de ${label}…`);
     try {
       fn();
@@ -109,14 +99,6 @@ export default function Settings() {
     }
   };
 
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(redirect);
-      toast('Redirect URL copiada');
-    } catch {
-      toast('No se pudo copiar; selecciónala a mano', true);
-    }
-  };
 
   return (
     <>
@@ -203,56 +185,6 @@ export default function Settings() {
             </div>
           </section>
 
-          <section id="api" className="panel pad">
-            <div className="panel-head" style={{ padding: 0 }}>
-              <h2>
-                Client IDs <span className="opt">opcional</span>
-              </h2>
-              <p className="sub">
-                Si los dejas vacíos se usa el de la build. Registra tu app en cada sitio con este Redirect URL:
-              </p>
-            </div>
-            <div className="urlbox">
-              <code>{redirect}</code>
-              <button className="btn sm" onClick={copy}>
-                Copiar
-              </button>
-            </div>
-            <div className="idgrid">
-              <div>
-                <label className="lbl" htmlFor="al">ANILIST CLIENT ID</label>
-                <input
-                  id="al"
-                  className="field"
-                  inputMode="numeric"
-                  placeholder={ids.anilist || '55082'}
-                  value={aniId}
-                  onChange={(e) => setAniId(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="lbl" htmlFor="mal">MYANIMELIST CLIENT ID</label>
-                <input
-                  id="mal"
-                  className="field"
-                  placeholder={ids.mal ? `${ids.mal.slice(0, 4)}…${ids.mal.slice(-6)}` : 'client id'}
-                  value={malId}
-                  onChange={(e) => setMalId(e.target.value)}
-                />
-              </div>
-            </div>
-            <div className="end">
-              <button
-                className="btn pri"
-                onClick={() => {
-                  persistIds();
-                  toast('Guardado');
-                }}
-              >
-                Guardar
-              </button>
-            </div>
-          </section>
         </div>
       </main>
       <BottomNav />
