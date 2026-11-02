@@ -45,12 +45,6 @@ export function displayScore(score: number, provider: ServiceId, scale: ScaleSet
   return trim(Number(scale) === 10 ? score / 10 : score * 10);
 }
 
-// Convierte una nota entre las escalas nativas de AniList (0–100) y MAL (0–10).
-export function convertScore(score: number, from: ServiceId, to: ServiceId): number {
-  if (from === to) return score;
-  return to === 'mal' ? Math.round(score / 10) : Math.round(score * 10);
-}
-
 // --- Tiempo --------------------------------------------------------------
 
 // "3d", "5h", "40m" para la insignia de la tarjeta.

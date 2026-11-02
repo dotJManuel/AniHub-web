@@ -367,12 +367,3 @@ export async function getAiringByMalIds(
   return out;
 }
 
-// Id de AniList de un título de MAL (null si no existe).
-export async function findIdByMal(malId: number, type: MediaType): Promise<number | null> {
-  const data = await gql(
-    `query ($idMal: Int, $type: MediaType) { Media(idMal: $idMal, type: $type) { id } }`,
-    { idMal: Number(malId), type: type.toUpperCase() },
-    { auth: false },
-  );
-  return data.Media?.id ?? null;
-}

@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { SubHeader } from '../components/Header';
 import { IconArrowUpRight, IconClose, IconPlay } from '../components/Icons';
-import Segmented, { type SegOption } from '../components/Segmented';
 import StatPanel, { type StatCell } from '../components/StatPanel';
 import { siteName } from '../components/Tile';
-import { useAuthStatus, useToast } from '../hooks';
-import { cleanSynopsis, convertScore, fmtNum, initials, longCountdown, slugify } from '../lib/format';
+import { useToast } from '../hooks';
+import { cleanSynopsis, fmtNum, initials, longCountdown, slugify } from '../lib/format';
 import * as service from '../lib/service';
 import type { Detail as DetailT, EntryInput, Link as LinkT, MediaType, ServiceId, ServiceList, Status } from '../types';
 
@@ -30,9 +29,6 @@ export default function Detail() {
   const svc = params.service as ServiceId;
   const type = params.type as MediaType;
   const id = Number(params.id);
-  const navigate = useNavigate();
-  const status = useAuthStatus();
-  const other: ServiceId = svc === 'mal' ? 'anilist' : 'mal';
 
   const detail = useQuery({
     queryKey: ['detail', svc, type, id],
@@ -44,24 +40,6 @@ export default function Detail() {
     queryFn: () => service.getExtras(svc, type, id),
     enabled: svc === 'mal',
   });
-  // Id del mismo título en el otro servicio: sirve para cambiar de fuente y para "Guardar en".
-  const counterpart = useQuery({
-    queryKey: ['counterpart', svc, type, id],
-    queryFn: () => service.getCounterpartId(svc, type, id, detail.data!.idMal),
-    enabled: !!detail.data,
-    staleTime: Infinity,
-  });
-  const otherId = counterpart.data ?? null;
-  const canSwitch = !!otherId && status[other];
-
-  const options: SegOption<ServiceId>[] = [
-    { id: 'mal', label: 'MAL' },
-    { id: 'anilist', label: 'AniList' },
-  ].map((o) => {
-    const o2 = o as SegOption<ServiceId>;
-    return o2.id === svc ? o2 : { ...o2, disabled: !canSwitch, title: canSwitch ? undefined : 'No disponible para este título' };
-  });
-
   const merged: DetailT | null = detail.data
     ? {
         ...detail.data,
@@ -74,16 +52,8 @@ export default function Detail() {
   return (
     <>
       <SubHeader backLabel="Mi lista" path={`~/${type}/${merged ? slugify(merged.title) : '…'}`}>
-        {status[other] && (
-          <Segmented
-            label="Fuente de los datos"
-            value={svc}
-            options={options}
-            onChange={(s) => {
-              if (s !== svc && otherId) navigate(`/detail/${s}/${type}/${otherId}`, { replace: true });
-            }}
-          />
-        )}
+        {/* Cada sitio es independiente: el detalle muestra y guarda solo en el sitio desde el que se abrió. */}
+        <span className="pill" title="Fuente de los datos">{siteName(svc)}</span>
       </SubHeader>
       <main className="container detail">
         {detail.isPending && <div className="empty">Cargando detalle…</div>}
@@ -97,7 +67,6 @@ export default function Detail() {
             key={`${svc}-${type}-${id}`}
             d={merged}
             loadingExtras={svc === 'mal' && extras.isPending}
-            otherId={canSwitch ? otherId : null}
           />
         )}
       </main>
@@ -105,10 +74,9 @@ export default function Detail() {
   );
 }
 
-function DetailBody({ d, loadingExtras, otherId }: { d: DetailT; loadingExtras: boolean; otherId: number | null }) {
+function DetailBody({ d, loadingExtras }: { d: DetailT; loadingExtras: boolean }) {
   const toast = useToast();
   const queryClient = useQueryClient();
-  const status = useAuthStatus();
   const isAnime = d.type === 'anime';
 
   // --- Vista previa de la portada (clic fuera o Esc para cerrar) ---
@@ -138,7 +106,6 @@ function DetailBody({ d, loadingExtras, otherId }: { d: DetailT; loadingExtras: 
   const [saved, setSaved] = useState<EntryInput>(initial);
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState(false);
-  const [targets, setTargets] = useState<Record<ServiceId, boolean>>({ mal: true, anilist: true });
   const patch = (p: Partial<EntryInput>) => {
     setFailed(false);
     setEntry((e) => ({ ...e, ...p }));
@@ -147,43 +114,32 @@ function DetailBody({ d, loadingExtras, otherId }: { d: DetailT; loadingExtras: 
   const total = d.episodes || 0;
   const clampProgress = (n: number) => Math.max(0, total ? Math.min(total, n) : n);
 
-  const showTargets = !!otherId && status.mal && status.anilist;
-  const chosen: ServiceId[] = showTargets
-    ? (['mal', 'anilist'] as ServiceId[]).filter((s) => targets[s])
-    : [d.provider];
-
+  // Guarda solo en el sitio desde el que se abrió el detalle.
   const save = async () => {
     setSaving(true);
-    const list = chosen.map((s) => ({ service: s, id: s === d.provider ? d.id : otherId! }));
-    const results = await service.setEntryEverywhere(d.type, list, entry, d.provider);
-    setSaving(false);
-
-    const ok = results.filter((r) => !r.error).map((r) => r.service);
-    const bad = results.filter((r) => r.error);
-    for (const s of ok) {
-      const nativeScore = convertScore(entry.score, d.provider, s);
-      const mediaId = s === d.provider ? d.id : otherId!;
-      queryClient.setQueryData<ServiceList>(['list', s], (old) =>
-        old
-          ? {
-              ...old,
-              [d.type]: old[d.type].map((x) =>
-                x.id === mediaId ? { ...x, progress: entry.progress, score: nativeScore } : x,
-              ),
-            }
-          : old,
-      );
-      queryClient.invalidateQueries({ queryKey: ['detail', s, d.type, mediaId] });
-    }
-    if (bad.length) {
+    try {
+      await service.setEntry(d.provider, d.type, d.id, entry);
+    } catch (e) {
+      setSaving(false);
       setFailed(true);
-      toast(`Falló en ${bad.map((b) => siteName(b.service)).join(', ')}: ${bad[0].error}`, true);
+      toast(`Falló en ${siteName(d.provider)}: ${(e as Error).message}`, true);
+      return;
     }
-    if (ok.length) {
-      setSaved(entry);
-      if (!bad.length && isMobile()) setOpen(false);
-      if (!bad.length) toast(`Guardado en ${ok.map(siteName).join(' y ')}`);
-    }
+    setSaving(false);
+    queryClient.setQueryData<ServiceList>(['list', d.provider], (old) =>
+      old
+        ? {
+            ...old,
+            [d.type]: old[d.type].map((x) =>
+              x.id === d.id ? { ...x, progress: entry.progress, score: entry.score } : x,
+            ),
+          }
+        : old,
+    );
+    queryClient.invalidateQueries({ queryKey: ['detail', d.provider, d.type, d.id] });
+    setSaved(entry);
+    if (isMobile()) setOpen(false);
+    toast(`Guardado en ${siteName(d.provider)}`);
   };
 
   const statusName =
@@ -404,25 +360,7 @@ function DetailBody({ d, loadingExtras, otherId }: { d: DetailT; loadingExtras: 
             </div>
           </div>
 
-          {showTargets && (
-            <div className="save-in">
-              <span className="lbl">GUARDAR EN</span>
-              <div className="checks">
-                {(['mal', 'anilist'] as ServiceId[]).map((s) => (
-                  <label className="check" key={s}>
-                    <input
-                      type="checkbox"
-                      checked={targets[s]}
-                      onChange={(e) => setTargets((t) => ({ ...t, [s]: e.target.checked }))}
-                    />
-                    {siteName(s)}
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <button className="save" onClick={save} disabled={saving || !chosen.length}>
+          <button className="save" onClick={save} disabled={saving}>
             {saving ? 'Guardando…' : 'Guardar cambios'}
           </button>
           </div>

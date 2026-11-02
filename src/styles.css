@@ -302,11 +302,6 @@ img { display: block; }
 .mini.plus { background: var(--ac); color: var(--on-ac); border-color: var(--ac); }
 .hint { font: 400 12px 'Geist Mono', monospace; color: var(--mu); }
 .two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.save-in { display: flex; flex-direction: column; gap: 2px; padding-top: 4px; border-top: 1px dashed var(--ln); }
-.save-in .lbl { padding-top: 12px; }
-.checks { display: flex; gap: 18px; flex-wrap: wrap; }
-.check { display: inline-flex; align-items: center; gap: 8px; font: 500 13px 'Geist Mono', monospace; color: var(--tx); min-height: 44px; }
-.check input { width: 18px; height: 18px; accent-color: #a3e635; }
 .save {
   height: 48px; border: 0; border-radius: 10px; background: var(--ac); color: var(--on-ac); font: 600 15px 'Geist', sans-serif; width: 100%;
 }

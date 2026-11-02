@@ -2,7 +2,6 @@
 import * as anilist from '../providers/anilist';
 import * as mal from '../providers/mal';
 import { computeStatus } from './model';
-import { convertScore } from './format';
 import * as storage from './storage';
 import type {
   Detail,
@@ -57,22 +56,6 @@ export async function getExtras(service: ServiceId, type: MediaType, id: number)
   return service === 'mal' ? mal.getExtras(id, type) : null;
 }
 
-// Id del mismo título en el otro servicio (null si no se puede emparejar).
-// AniList -> MAL: Media.idMal. MAL -> AniList: Media(idMal:) público.
-export async function getCounterpartId(
-  service: ServiceId,
-  type: MediaType,
-  id: number,
-  idMal: number | null,
-): Promise<number | null> {
-  if (service === 'anilist') return idMal;
-  try {
-    return await anilist.findIdByMal(id, type);
-  } catch {
-    return null;
-  }
-}
-
 export async function setProgress(
   service: ServiceId,
   type: MediaType,
@@ -88,26 +71,6 @@ export async function setProgress(
 
 export function setEntry(service: ServiceId, type: MediaType, id: number, entry: EntryInput) {
   return service === 'mal' ? mal.saveEntry(id, type, entry) : anilist.saveEntry(id, entry);
-}
-
-// Guarda la misma entrada en uno o varios servicios, convirtiendo la nota a la escala de cada uno.
-// `from` es el servicio en cuya escala está `entry.score`.
-export async function setEntryEverywhere(
-  type: MediaType,
-  targets: { service: ServiceId; id: number }[],
-  entry: EntryInput,
-  from: ServiceId,
-): Promise<{ service: ServiceId; error: string | null }[]> {
-  return Promise.all(
-    targets.map(async (t) => {
-      try {
-        await setEntry(t.service, type, t.id, { ...entry, score: convertScore(entry.score, from, t.service) });
-        return { service: t.service, error: null };
-      } catch (e) {
-        return { service: t.service, error: (e as Error).message };
-      }
-    }),
-  );
 }
 
 // MAL no tiene API de notificaciones.
