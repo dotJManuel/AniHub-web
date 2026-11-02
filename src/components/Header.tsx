@@ -35,7 +35,15 @@ export function ThemeButton() {
 export function Logo() {
   return (
     <Link to="/" className="logo" aria-label="AniHub — inicio">
-      <span className="logo-mark mono">&gt;_</span>
+      <span className="logo-mark" aria-hidden="true">
+        {/* ojo estilo anime con destello (misma figura que el ícono de la PWA) */}
+        <svg viewBox="120 110 272 272" width="22" height="22" fill="none">
+          <path d="M146 250 Q256 146 366 250" stroke="currentColor" strokeWidth="32" strokeLinecap="round" />
+          <circle cx="256" cy="288" r="64" fill="currentColor" />
+          <circle cx="234" cy="266" r="22" fill="var(--ac)" />
+          <path d="M364 150 L372 172 L394 180 L372 188 L364 210 L356 188 L334 180 L356 172 Z" fill="currentColor" />
+        </svg>
+      </span>
       <span className="logo-word mono">anihub</span>
     </Link>
   );
