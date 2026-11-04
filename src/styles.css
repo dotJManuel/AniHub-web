@@ -452,15 +452,18 @@ a.nrow:hover { border-color: var(--mu); color: var(--tx); }
 @media (max-width: 640px) {
   .container { padding-left: 16px; padding-right: 16px; }
   .page, .detail, .settings { padding-top: 20px; }
-  .page.has-nav, .detail.has-nav, .settings.has-nav { padding-bottom: calc(56px + 18px + env(safe-area-inset-bottom) + 24px); }
+  .page.has-nav, .detail.has-nav, .settings.has-nav { padding-bottom: calc(46px + env(safe-area-inset-bottom) + 24px); }
 
-  /* Header compacto: logo + iconos en una fila, segmentado a todo el ancho debajo */
-  .hdr-in { gap: 12px 10px; padding-top: 14px; padding-bottom: 12px; }
-  .hdr-in .logo { order: 1; }
-  .hdr-in .grow { order: 2; }
-  .hdr-in .hdr-actions { order: 3; }
-  .hdr-in .hdr-seg { order: 4; flex: 1 0 100%; }
-  .hdr-seg .seg { flex: 1; }
+  /* Header compacto: una sola fila (logo · fuente · acciones) y controles más bajos */
+  .hdr-in { flex-wrap: nowrap; gap: 8px; padding-top: 7px; padding-bottom: 7px; }
+  .hdr-in .logo-word { display: none; }
+  .hdr-in .logo-mark { width: 30px; height: 30px; }
+  .hdr-in .hdr-seg { flex: 0 1 auto; min-width: 0; padding: 2px; gap: 2px; }
+  .hdr-seg .seg { height: 28px; padding: 0 10px; font-size: 12px; }
+  .hdr-in .grow { flex: 1 1 0; }
+  .hdr-in .hdr-actions { gap: 6px; }
+  .hdr .ibtn { width: 36px; height: 36px; }
+  .hdr .btn { height: 36px; padding: 0 12px; }
   .hide-m { display: none !important; }
   .hdr-in .route-path { display: none; }
 
@@ -496,9 +499,9 @@ a.nrow:hover { border-color: var(--mu); color: var(--tx); }
   .dbody { flex-direction: column; align-items: stretch; gap: 28px; }
   .dmain, .mylist { flex: none; width: 100%; }
   /* "Mi lista" siempre a mano: barra fija abajo que se abre como panel deslizable */
-  .detail { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+  .detail { padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
   .mylist { position: fixed; left: 0; right: 0; bottom: 0; width: auto; z-index: 25; border-radius: 16px 16px 0 0; border-bottom: 0; box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.25); }
-  .mylist.collapsed { flex-direction: row; align-items: center; gap: 12px; z-index: 20; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); }
+  .mylist.collapsed { flex-direction: row; align-items: center; gap: 12px; z-index: 20; padding: 6px 16px calc(6px + env(safe-area-inset-bottom)); }
   .mylist.collapsed .mylist-head { order: 2; }
   .mylist.collapsed .mylist-head h2, .mylist.collapsed .sync-state { display: none; }
   .mylist.collapsed .mylist-sum { order: 1; flex: 1; min-width: 0; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -516,19 +519,21 @@ a.nrow:hover { border-color: var(--mu); color: var(--tx); }
   .act-head h1 { font-size: 22px; }
   .hide-d { display: inline-flex; }
 
+  /* Navegación inferior delgada: icono y etiqueta pequeños, sin relleno extra */
   .bnav {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: flex; border-top: 1px solid var(--ln); background: var(--sf);
-    padding: 4px 8px calc(18px + env(safe-area-inset-bottom));
+    padding: 0 8px env(safe-area-inset-bottom);
   }
   .bnav a, .bnav button {
-    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 56px; color: var(--mu);
-    font: 500 11px 'Geist Mono', monospace; background: transparent; border: 0; padding: 0; position: relative;
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; min-height: 46px; color: var(--mu);
+    font: 500 10px 'Geist Mono', monospace; background: transparent; border: 0; padding: 0; position: relative;
   }
+  .bnav svg { width: 18px; height: 18px; }
   .bnav a.on { color: var(--tx); }
-  .bnav .nav-dot { position: absolute; top: 8px; left: calc(50% + 6px); width: 7px; height: 7px; border-radius: 50%; background: var(--ac); }
-  .toast { bottom: calc(86px + env(safe-area-inset-bottom)); }
+  .bnav .nav-dot { position: absolute; top: 5px; left: calc(50% + 6px); width: 7px; height: 7px; border-radius: 50%; background: var(--ac); }
+  .toast { bottom: calc(62px + env(safe-area-inset-bottom)); }
   /* Por encima de la navegación inferior y de la barra "Mi lista" */
-  .fab { right: 14px; bottom: calc(96px + env(safe-area-inset-bottom)); }
+  .fab { right: 14px; bottom: calc(66px + env(safe-area-inset-bottom)); }
   .fab-btn { width: 40px; height: 40px; }
 }
 @media (min-width: 641px) { .hide-d { display: none !important; } }
