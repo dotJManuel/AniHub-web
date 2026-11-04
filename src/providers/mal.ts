@@ -1,5 +1,6 @@
 // Provider de MyAnimeList (API v2 REST), siempre a través del proxy (sin CORS en MAL).
 import { PROXY_URL } from '../config';
+import { nextBroadcastAt } from '../lib/format';
 import { ensureMalToken } from '../lib/auth';
 import { tr } from '../lib/i18n';
 import type {
@@ -77,7 +78,7 @@ export async function getByStatus(type: MediaType, status: ListStatus): Promise<
   const malStatus = toMalStatus(status, type);
   const fields =
     type === 'anime'
-      ? 'list_status,num_episodes,status,main_picture,alternative_titles'
+      ? 'list_status,num_episodes,status,main_picture,alternative_titles,broadcast'
       : 'list_status,num_chapters,status,main_picture,alternative_titles';
   const items: ListItem[] = [];
   for (let offset = 0; offset < 5000; offset += 1000) {
@@ -96,6 +97,7 @@ export async function getByStatus(type: MediaType, status: ListStatus): Promise<
         status: FROM_MAL[ls.status] || 'WATCHING',
         airingEp: null,
         next: null,
+        nextAt: type === 'anime' && node.status === 'currently_airing' ? nextBroadcastAt(node.broadcast) : null,
         release: releaseOf(node.status),
         progress: (type === 'anime' ? ls.num_episodes_watched : ls.num_chapters_read) || 0,
         score: ls.score || 0,

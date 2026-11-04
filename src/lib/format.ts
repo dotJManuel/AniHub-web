@@ -54,6 +54,26 @@ export function behindOf(i: { airingEp: number | null; progress: number; release
   return i.release === 'releasing' && i.airingEp != null ? Math.max(0, i.airingEp - (i.progress || 0)) : 0;
 }
 
+// Próxima emisión estimada a partir del `broadcast` de MAL (día de la semana + hora, en horario de Japón, UTC+9).
+// MAL no da el número del próximo episodio ni su fecha exacta: esto es solo el siguiente "hueco" semanal. Segundos Unix o null.
+export function nextBroadcastAt(broadcast: { day_of_the_week?: string; start_time?: string } | undefined, nowMs = Date.now()): number | null {
+  const day = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'].indexOf(String(broadcast?.day_of_the_week || '').toLowerCase());
+  const m = /^(\d{1,2}):(\d{2})/.exec(broadcast?.start_time || '');
+  if (day < 0 || !m) return null;
+  const JST = 9 * 3600 * 1000;
+  const jst = new Date(nowMs + JST); // los getUTC* de esta fecha equivalen a la hora de pared en Japón
+  const delta = day - jst.getUTCDay();
+  const slot = Date.UTC(jst.getUTCFullYear(), jst.getUTCMonth(), jst.getUTCDate() + delta, Number(m[1]), Number(m[2])) - JST;
+  let at = slot;
+  while (at <= nowMs) at += 7 * 86400 * 1000;
+  return Math.floor(at / 1000);
+}
+
+// Momento de la próxima emisión de un item (exacta en AniList, estimada en MAL) o Infinity si no se conoce.
+export function nextTime(i: { next: { at: number } | null; nextAt?: number | null }): number {
+  return i.next?.at ?? i.nextAt ?? Infinity;
+}
+
 export function shortCountdown(next: NextEpisode, now = Date.now()): string {
   const sec = Math.max(0, next.at - Math.floor(now / 1000));
   const d = Math.floor(sec / 86400);

@@ -7,7 +7,7 @@ import { IconFilter, IconSearch } from '../components/Icons';
 import StatPanel from '../components/StatPanel';
 import Tile, { siteName } from '../components/Tile';
 import { useAuthStatus, usePref, useScale, useSource, useT, useToast, type TFn } from '../hooks';
-import { behindOf, fmtNum, normalize, pad2 } from '../lib/format';
+import { behindOf, fmtNum, nextTime, normalize, pad2 } from '../lib/format';
 import * as service from '../lib/service';
 import { LIST_STATUSES } from '../types';
 import type { ListItem, ListStatus, MediaType, ServiceId, ServiceList } from '../types';
@@ -54,7 +54,9 @@ export default function Home() {
   const listStatus = (LIST_STATUSES.includes(statusPref as ListStatus) ? statusPref : 'WATCHING') as ListStatus;
   const watching = listStatus === 'WATCHING';
   const [filter, setFilter] = useState<Filter>('all');
-  const [byScore, setByScore] = useState(false);
+  // Orden: 'airing' = por fecha del próximo capítulo (por defecto), 'recent' = como llega de la API, 'score' = mejor puntuados.
+  const [sort, setSort] = useState<'airing' | 'recent' | 'score'>('airing');
+  const byScore = sort === 'score';
   const [query, setQuery] = useState('');
   const [shown, setShown] = useState(PAGE);
   // Barra compacta: la búsqueda se abre con una lupa (en móvil) y los filtros viven en un menú.
@@ -82,7 +84,7 @@ export default function Home() {
   }, [menuOpen]);
 
   // Cada cambio de vista vuelve a mostrar la primera tanda de tarjetas.
-  useEffect(() => setShown(PAGE), [source, type, listStatus, filter, query, byScore]);
+  useEffect(() => setShown(PAGE), [source, type, listStatus, filter, query, sort]);
 
   const connected = status[source];
   const anyConnected = status.mal || status.anilist;
@@ -137,12 +139,16 @@ export default function Home() {
       .map(([key, label, pick]) => {
         const g = filtered.filter(pick);
         const ordered = byScore ? [...g].sort((a, b) => b.score - a.score) : g;
-        // En Airing (anime), primero los que voy atrasados (más capítulos de atraso arriba); el resto conserva el orden elegido.
-        const items = watching && type === 'anime' && key === 'releasing' ? [...ordered].sort((a, b) => behindOf(b) - behindOf(a)) : ordered;
+        // En Airing (anime): 1º los atrasados (más atraso arriba); luego, a quien le falte menos para su próximo capítulo.
+        // Con orden por Score, el score desempata en lugar del tiempo.
+        const items =
+          watching && type === 'anime' && key === 'releasing'
+            ? [...ordered].sort((a, b) => behindOf(b) - behindOf(a) || (sort === 'airing' ? nextTime(a) - nextTime(b) : 0))
+            : ordered;
         return { key, label, items };
       })
       .filter((g) => g.items.length);
-  }, [filtered, type, byScore, watching, listStatus]);
+  }, [filtered, type, byScore, sort, watching, listStatus]);
 
   const epsSeen = (data?.anime ?? []).reduce((a, i) => a + i.progress, 0);
   const filters: { id: Filter; label: string }[] =
@@ -255,10 +261,15 @@ export default function Home() {
                       <div className="pop-sec">
                         <span className="lbl">{t('home.sort')}</span>
                         <div className="chips wrap">
-                          <button className={`chip${!byScore ? ' on' : ''}`} onClick={() => setByScore(false)}>
+                          {type === 'anime' && (
+                            <button className={`chip${sort === 'airing' ? ' on' : ''}`} onClick={() => setSort('airing')} aria-pressed={sort === 'airing'}>
+                              {t('home.sortAiring')}
+                            </button>
+                          )}
+                          <button className={`chip${sort === 'recent' || (sort === 'airing' && type !== 'anime') ? ' on' : ''}`} onClick={() => setSort('recent')}>
                             {t('home.sortRecent')}
                           </button>
-                          <button className={`chip${byScore ? ' on' : ''}`} onClick={() => setByScore(true)} aria-pressed={byScore}>
+                          <button className={`chip${byScore ? ' on' : ''}`} onClick={() => setSort('score')} aria-pressed={byScore}>
                             Score ↓
                           </button>
                         </div>

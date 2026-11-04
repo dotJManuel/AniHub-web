@@ -54,6 +54,9 @@ export default function Tile({ item, type, scale, busy, onStep }: Props) {
             {displayScore(item.score, item.provider, scale)}
           </span>
         )}
+        {!item.next && item.nextAt && type === 'anime' && (
+          <span className="badge next">~ {shortCountdown({ episode: 0, at: item.nextAt })}</span>
+        )}
         {item.next && type === 'anime' && (
           <span className="badge next">
             EP {item.next.episode} · {shortCountdown(item.next)}

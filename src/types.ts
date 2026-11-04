@@ -19,6 +19,8 @@ export interface ListItem {
   release: Release;
   airingEp: number | null;
   next: NextEpisode | null;
+  // Solo MAL: próxima emisión estimada por su horario semanal (segundos Unix); no incluye número de episodio.
+  nextAt?: number | null;
   progress: number;
   score: number;
 }
