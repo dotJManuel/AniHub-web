@@ -76,6 +76,11 @@ export async function getUser(service: ServiceId): Promise<{ id: number; name: s
   return anilist.getViewer();
 }
 
+// Episodios vistos en total en ese sitio (estadística del perfil, no la suma de la lista "viendo").
+export function getEpisodesWatched(service: ServiceId): Promise<number> {
+  return service === 'mal' ? mal.getEpisodesWatched() : anilist.getEpisodesWatched();
+}
+
 // Buscador global: una página (12) de resultados de un tipo, solo en el sitio indicado.
 export function searchPage(service: ServiceId, q: string, type: MediaType, page: number): Promise<SearchPage> {
   return service === 'mal' ? mal.searchPage(q, type, page) : anilist.searchPage(q, type, page);

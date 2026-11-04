@@ -150,7 +150,13 @@ export default function Home() {
       .filter((g) => g.items.length);
   }, [filtered, type, byScore, sort, watching, listStatus]);
 
-  const epsSeen = (data?.anime ?? []).reduce((a, i) => a + i.progress, 0);
+  // Total de episodios vistos: estadística oficial del sitio (la lista "viendo" solo trae una parte).
+  const eps = useQuery({
+    queryKey: ['eps', source],
+    queryFn: () => service.getEpisodesWatched(source),
+    enabled: connected,
+    staleTime: 10 * 60_000,
+  });
   const filters: { id: Filter; label: string }[] =
     type === 'anime'
       ? [{ id: 'all', label: t('home.filterAll') }, { id: 'releasing', label: t('home.filterAiring') }, { id: 'finished', label: t('home.filterFinished') }]
@@ -183,7 +189,7 @@ export default function Home() {
               cells={[
                 { k: 'WATCHING', v: pad2(data.anime.length) },
                 { k: 'READING', v: pad2(data.manga.length) },
-                { k: t('home.epsSeen'), v: fmtNum(epsSeen), accent: true },
+                { k: t('home.epsSeen'), v: eps.data != null ? fmtNum(eps.data) : '—', accent: true },
               ]}
             />
           )}

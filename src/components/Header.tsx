@@ -71,6 +71,7 @@ export function MainHeader({
   const sync = () => {
     queryClient.invalidateQueries({ queryKey: ['list'] });
     queryClient.invalidateQueries({ queryKey: ['unread'] });
+    queryClient.invalidateQueries({ queryKey: ['eps'] });
     queryClient.invalidateQueries({ queryKey: ['notifications'] });
   };
 
