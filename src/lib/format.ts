@@ -49,6 +49,11 @@ export function displayScore(score: number, provider: ServiceId, scale: ScaleSet
 // --- Tiempo --------------------------------------------------------------
 
 // "3d", "5h", "40m" para la insignia de la tarjeta.
+// Capítulos de atraso: episodios ya emitidos que aún no he visto (solo si el sitio informa del último emitido; AniList).
+export function behindOf(i: { airingEp: number | null; progress: number; release: string }): number {
+  return i.release === 'releasing' && i.airingEp != null ? Math.max(0, i.airingEp - (i.progress || 0)) : 0;
+}
+
 export function shortCountdown(next: NextEpisode, now = Date.now()): string {
   const sec = Math.max(0, next.at - Math.floor(now / 1000));
   const d = Math.floor(sec / 86400);

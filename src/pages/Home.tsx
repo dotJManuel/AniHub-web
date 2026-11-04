@@ -7,7 +7,7 @@ import { IconFilter, IconSearch } from '../components/Icons';
 import StatPanel from '../components/StatPanel';
 import Tile, { siteName } from '../components/Tile';
 import { useAuthStatus, usePref, useScale, useSource, useT, useToast, type TFn } from '../hooks';
-import { fmtNum, normalize, pad2 } from '../lib/format';
+import { behindOf, fmtNum, normalize, pad2 } from '../lib/format';
 import * as service from '../lib/service';
 import { LIST_STATUSES } from '../types';
 import type { ListItem, ListStatus, MediaType, ServiceId, ServiceList } from '../types';
@@ -136,7 +136,10 @@ export default function Home() {
     return defs
       .map(([key, label, pick]) => {
         const g = filtered.filter(pick);
-        return { key, label, items: byScore ? [...g].sort((a, b) => b.score - a.score) : g };
+        const ordered = byScore ? [...g].sort((a, b) => b.score - a.score) : g;
+        // En Airing (anime), primero los que voy atrasados (más capítulos de atraso arriba); el resto conserva el orden elegido.
+        const items = watching && type === 'anime' && key === 'releasing' ? [...ordered].sort((a, b) => behindOf(b) - behindOf(a)) : ordered;
+        return { key, label, items };
       })
       .filter((g) => g.items.length);
   }, [filtered, type, byScore, watching, listStatus]);

@@ -228,6 +228,7 @@ img { display: block; }
   font: 600 12px 'Geist Mono', monospace; white-space: nowrap;
 }
 .badge.score { right: 10px; background: rgba(11, 12, 15, 0.78); color: #f5f6f8; }
+.behind { align-self: flex-start; padding: 2px 7px; border-radius: 6px; background: #f59e0b; color: #0b0c0f; font: 600 10px 'Geist Mono', monospace; letter-spacing: 0.04em; }
 .badge.next { left: 10px; background: #a3e635; color: #0b0c0f; font-size: 11px; }
 .scrim {
   position: absolute; left: 0; right: 0; bottom: 0; height: 62%; pointer-events: none;

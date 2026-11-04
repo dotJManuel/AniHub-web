@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useT } from '../hooks';
-import { displayScore, fmtNum, initials, shortCountdown } from '../lib/format';
+import { behindOf, displayScore, fmtNum, initials, shortCountdown } from '../lib/format';
 import type { ListItem, MediaType, ScaleSetting } from '../types';
 import { IconStar } from './Icons';
 
@@ -30,6 +30,7 @@ export default function Tile({ item, type, scale, busy, onStep }: Props) {
   const pct = item.total ? Math.min(100, Math.round((item.progress / item.total) * 100)) : null;
   const unit = type === 'anime' ? 'EP' : 'CH';
   const showImg = !!item.image && !broken;
+  const behind = type === 'anime' ? behindOf(item) : 0;
 
   return (
     <article className="card">
@@ -61,6 +62,7 @@ export default function Tile({ item, type, scale, busy, onStep }: Props) {
       </Link>
       <span className="scrim" />
       <div className="overlay">
+        {behind > 0 && <span className="behind">BEHIND {fmtNum(behind)}</span>}
         <h3 className="title2">{item.title}</h3>
         <div className="prog">
           <div className="prog-row">
