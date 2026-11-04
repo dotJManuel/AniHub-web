@@ -7,6 +7,7 @@ import type {
   Detail,
   EntryInput,
   Extras,
+  ListStatus,
   MediaType,
   Notification,
   SearchPage,
@@ -14,13 +15,13 @@ import type {
   ServiceList,
 } from '../types';
 
-export async function getList(service: ServiceId): Promise<ServiceList> {
+export async function getList(service: ServiceId, status: ListStatus = 'WATCHING'): Promise<ServiceList> {
   const out: ServiceList = { service, anime: [], manga: [], errors: [] };
   const provider = service === 'mal' ? mal : anilist;
   await Promise.all(
     (['anime', 'manga'] as MediaType[]).map(async (type) => {
       try {
-        out[type] = await provider.getCurrent(type);
+        out[type] = await provider.getByStatus(type, status);
       } catch (e) {
         out.errors.push(`${type}: ${(e as Error).message}`);
       }

@@ -161,7 +161,25 @@ img { display: block; }
 .stat-panel.auto .lbl { letter-spacing: 0.08em; }
 .titlebar .stat-panel { min-width: 300px; }
 
-.toolbar { display: flex; flex-direction: column; gap: 16px; }
+.toolbar { display: flex; flex-direction: column; gap: 12px; }
+/* Fila compacta: pestañas a la izquierda; búsqueda y menú de filtros a la derecha */
+.toolbar-row { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--ln); }
+.toolbar-row .tabs { border-bottom: 0; }
+.toolbar-row .tab { margin-bottom: 0; height: 46px; }
+.ibtn.sm { width: 38px; height: 38px; }
+.ibtn.active { border-color: var(--mu); background: var(--sf2); }
+.ibtn.sm .dot { top: 7px; right: 8px; }
+.searchbox.inline { flex: 0 1 260px; max-width: 260px; margin: 0; }
+.searchbox.inline .search { height: 38px; }
+.searchbox.inline svg { top: 10px; }
+.menu-wrap { position: relative; }
+.popover {
+  position: absolute; right: 0; top: calc(100% + 8px); z-index: 15; min-width: 240px; max-width: calc(100vw - 32px);
+  background: var(--sf); border: 1px solid var(--ln); border-radius: 14px; padding: 14px;
+  display: flex; flex-direction: column; gap: 14px; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+.pop-sec { display: flex; flex-direction: column; gap: 8px; }
+.chips.wrap { flex-wrap: wrap; }
 .filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
 .searchbox { position: relative; display: block; flex: 1 1 240px; max-width: 320px; margin-left: auto; }
 .searchbox svg { position: absolute; left: 12px; top: 11px; color: var(--mu); pointer-events: none; }
@@ -438,6 +456,11 @@ a.nrow:hover { border-color: var(--mu); color: var(--tx); }
 
   .titlebar { align-items: stretch; }
   .titlebar h1 { font-size: 30px; }
+  /* En móvil la lista sube: sin el título grande, solo la ruta y las estadísticas */
+  .titlebar { gap: 8px; }
+  .titlebar h1 { display: none; }
+  .titlebar > div { width: 100%; }
+  .stat { padding: 8px 12px; }
   .titlebar .stat-panel { min-width: 0; width: 100%; }
   .stat .val { font-size: 18px; }
 

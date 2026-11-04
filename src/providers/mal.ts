@@ -6,6 +6,7 @@ import type {
   EntryInput,
   Extras,
   ListItem,
+  ListStatus,
   MediaType,
   Release,
   SearchPage,
@@ -68,34 +69,43 @@ function releaseOf(status: string): Release {
   return 'other';
 }
 
-export async function getCurrent(type: MediaType): Promise<ListItem[]> {
+// Lista de un estado (anime o manga) del usuario, última actualización primero. MAL entrega hasta
+// 1 000 por petición: se pide por páginas (offset) mientras haya más.
+export async function getByStatus(type: MediaType, status: ListStatus): Promise<ListItem[]> {
   const listPath = type === 'anime' ? 'animelist' : 'mangalist';
-  const status = type === 'anime' ? 'watching' : 'reading';
+  const malStatus = toMalStatus(status, type);
   const fields =
     type === 'anime'
       ? 'list_status,num_episodes,status,main_picture,alternative_titles'
       : 'list_status,num_chapters,status,main_picture,alternative_titles';
-  const data = await apiFetch(`/users/@me/${listPath}?status=${status}&limit=1000&nsfw=true&fields=${fields}`);
   const items: ListItem[] = [];
-  for (const row of data.data || []) {
-    const node = row.node;
-    const ls = row.list_status || {};
-    items.push({
-      provider: 'mal',
-      id: node.id,
-      title: node.title,
-      total: (type === 'anime' ? node.num_episodes : node.num_chapters) || 0,
-      image: node.main_picture?.large || node.main_picture?.medium || '',
-      status: FROM_MAL[ls.status] || 'WATCHING',
-      airingEp: null,
-      next: null,
-      release: releaseOf(node.status),
-      progress: (type === 'anime' ? ls.num_episodes_watched : ls.num_chapters_read) || 0,
-      score: ls.score || 0,
-    });
+  for (let offset = 0; offset < 5000; offset += 1000) {
+    const data = await apiFetch(
+      `/users/@me/${listPath}?status=${malStatus}&sort=list_updated_at&limit=1000&offset=${offset}&nsfw=true&fields=${fields}`,
+    );
+    for (const row of data.data || []) {
+      const node = row.node;
+      const ls = row.list_status || {};
+      items.push({
+        provider: 'mal',
+        id: node.id,
+        title: node.title,
+        total: (type === 'anime' ? node.num_episodes : node.num_chapters) || 0,
+        image: node.main_picture?.large || node.main_picture?.medium || '',
+        status: FROM_MAL[ls.status] || 'WATCHING',
+        airingEp: null,
+        next: null,
+        release: releaseOf(node.status),
+        progress: (type === 'anime' ? ls.num_episodes_watched : ls.num_chapters_read) || 0,
+        score: ls.score || 0,
+      });
+    }
+    if (!data.paging?.next) break;
   }
   return items;
 }
+
+export const getCurrent = (type: MediaType) => getByStatus(type, 'WATCHING');
 
 export async function save(id: number, type: MediaType, progress: number, status: Status) {
   const field = type === 'anime' ? 'num_watched_episodes' : 'num_chapters_read';

@@ -132,3 +132,7 @@ export interface SearchPage {
   items: SearchResult[];
   hasMore: boolean;
 }
+
+// Estados de lista que se pueden ver en "Mi lista" (REPEATING cuenta como "viendo").
+export type ListStatus = 'WATCHING' | 'COMPLETED' | 'PAUSED' | 'DROPPED' | 'PLANNING';
+export const LIST_STATUSES: ListStatus[] = ['WATCHING', 'COMPLETED', 'PAUSED', 'DROPPED', 'PLANNING'];

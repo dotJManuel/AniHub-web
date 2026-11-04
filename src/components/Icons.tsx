@@ -93,3 +93,8 @@ export const IconClose = (p: P) => (
     <path d="M18 6 6 18M6 6l12 12" />
   </Svg>
 );
+export const IconFilter = (p: P) => (
+  <Svg {...p}>
+    <path d="M3 5h18l-7 8.5V19l-4-2v-3.5z" />
+  </Svg>
+);

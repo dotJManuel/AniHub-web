@@ -5,6 +5,7 @@ import type {
   Detail,
   EntryInput,
   ListItem,
+  ListStatus,
   MediaType,
   NextEpisode,
   SearchPage,
@@ -68,15 +69,26 @@ export async function getViewer(): Promise<{ id: number; name: string }> {
   return data.Viewer;
 }
 
+// Estados de AniList que corresponden a cada estado de lista ("viendo" incluye releyendo).
+const ANI_STATUSES: Record<ListStatus, string[]> = {
+  WATCHING: ['CURRENT', 'REPEATING'],
+  COMPLETED: ['COMPLETED'],
+  PAUSED: ['PAUSED'],
+  DROPPED: ['DROPPED'],
+  PLANNING: ['PLANNING'],
+};
+
 const LIST_QUERY = `
-query ($userId: Int, $type: MediaType) {
-  MediaListCollection(userId: $userId, type: $type, status_in: [CURRENT, REPEATING]) {
+query ($userId: Int, $type: MediaType, $statuses: [MediaListStatus], $chunk: Int) {
+  MediaListCollection(userId: $userId, type: $type, status_in: $statuses, sort: UPDATED_TIME_DESC, chunk: $chunk, perChunk: 500) {
+    hasNextChunk
     lists {
       entries {
         id
         progress
         score(format: POINT_100)
         status
+        updatedAt
         media {
           id
           status
@@ -101,30 +113,49 @@ function releaseOf(status: string): Release {
   return status === 'RELEASING' ? 'releasing' : status === 'FINISHED' ? 'finished' : 'other';
 }
 
-export async function getCurrent(type: MediaType): Promise<ListItem[]> {
+// Lista de un estado (anime o manga) del usuario, más reciente primero. AniList entrega la lista en
+// bloques de 500; algunos usuarios además la separan por formato (varias listas "Completed …").
+export async function getByStatus(type: MediaType, status: ListStatus): Promise<ListItem[]> {
   const viewer = await getViewer();
-  const data = await gql(LIST_QUERY, { userId: viewer.id, type: type.toUpperCase() });
-  const items: ListItem[] = [];
-  for (const list of data.MediaListCollection?.lists || []) {
-    for (const e of list.entries) {
-      items.push({
-        provider: 'anilist',
-        id: e.media.id,
-        title: e.media.title.userPreferred,
-        total: (type === 'anime' ? e.media.episodes : e.media.chapters) || 0,
-        image: e.media.coverImage?.large || '',
-        status: FROM_ANI[e.status] || 'WATCHING',
-        release: releaseOf(e.media.status),
-        // Último episodio emitido (el siguiente a emitir menos 1).
-        airingEp: e.media.nextAiringEpisode ? e.media.nextAiringEpisode.episode - 1 : null,
-        next: nextOf(e.media.nextAiringEpisode),
-        progress: e.progress || 0,
-        score: e.score || 0,
-      });
+  const seen = new Set<number>();
+  const rows: { item: ListItem; at: number }[] = [];
+  for (let chunk = 1; chunk <= 20; chunk++) {
+    const data = await gql(LIST_QUERY, {
+      userId: viewer.id,
+      type: type.toUpperCase(),
+      statuses: ANI_STATUSES[status],
+      chunk,
+    });
+    const col = data.MediaListCollection;
+    for (const list of col?.lists || []) {
+      for (const e of list.entries) {
+        if (seen.has(e.media.id)) continue; // las listas personalizadas repiten entradas
+        seen.add(e.media.id);
+        rows.push({
+          at: e.updatedAt || 0,
+          item: {
+            provider: 'anilist',
+            id: e.media.id,
+            title: e.media.title.userPreferred,
+            total: (type === 'anime' ? e.media.episodes : e.media.chapters) || 0,
+            image: e.media.coverImage?.large || '',
+            status: FROM_ANI[e.status] || 'WATCHING',
+            release: releaseOf(e.media.status),
+            // Último episodio emitido (el siguiente a emitir menos 1).
+            airingEp: e.media.nextAiringEpisode ? e.media.nextAiringEpisode.episode - 1 : null,
+            next: nextOf(e.media.nextAiringEpisode),
+            progress: e.progress || 0,
+            score: e.score || 0,
+          },
+        });
+      }
     }
+    if (!col?.hasNextChunk) break;
   }
-  return items;
+  return rows.sort((a, b) => b.at - a.at).map((r) => r.item);
 }
+
+export const getCurrent = (type: MediaType) => getByStatus(type, 'WATCHING');
 
 export async function save(mediaId: number, progress: number, status: Status) {
   const data = await gql(

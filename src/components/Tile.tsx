@@ -17,7 +17,8 @@ interface Props {
   type: MediaType;
   scale: ScaleSetting;
   busy: boolean;
-  onStep: (delta: 1 | -1) => void;
+  // Solo en la lista "viendo": en otros estados no hay botones −/+1.
+  onStep?: (delta: 1 | -1) => void;
 }
 
 // Tarjeta de lista: portada 2:3 a sangre completa; título, progreso y −/+1 encima.
@@ -72,14 +73,14 @@ export default function Tile({ item, type, scale, busy, onStep }: Props) {
             <i style={{ width: pct === null ? '100%' : `${pct}%` }} />
           </div>
         </div>
-        <div className="steps">
+        {onStep && (<div className="steps">
           <button className="step" disabled={busy} onClick={() => onStep(-1)} aria-label="Restar uno">
             −
           </button>
           <button className="step plus" disabled={busy} onClick={() => onStep(1)} aria-label="Sumar uno">
             +1
           </button>
-        </div>
+        </div>)}
       </div>
     </article>
   );
