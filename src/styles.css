@@ -129,7 +129,7 @@ img { display: block; }
 /* ==========================================================================
    Header
    ========================================================================== */
-.hdr { border-bottom: 1px solid var(--ln); background: var(--bg); }
+.hdr { position: sticky; top: 0; z-index: 10; border-bottom: 1px solid var(--ln); background: var(--bg); }
 .hdr-in { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding-top: 14px; padding-bottom: 14px; }
 .logo { display: flex; align-items: center; gap: 10px; color: var(--tx); }
 .logo:hover { color: var(--tx); }
@@ -355,7 +355,7 @@ img { display: block; }
    Ajustes
    ========================================================================== */
 .settings { display: flex; flex-wrap: wrap; gap: 32px; align-items: flex-start; padding-top: 32px; padding-bottom: 72px; }
-.snav { flex: 1 1 200px; display: flex; flex-direction: column; gap: 4px; position: sticky; top: 16px; }
+.snav { flex: 1 1 200px; display: flex; flex-direction: column; gap: 4px; position: sticky; top: 88px; }
 .snav a {
   display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 12px; border-radius: 10px; color: var(--mu); font: 500 14px 'Geist', sans-serif;
 }
