@@ -46,7 +46,7 @@ const es = {
 
   // --- lista (Home)
   'home.myList': 'Mi lista',
-  'home.epsSeen': 'EPS VISTOS',
+  'home.animeWatched': 'ANIMES VISTOS',
   'home.noAccount': 'Todavía no conectaste ninguna cuenta.',
   'home.notConnected': 'Todavía no conectaste {site}.',
   'home.connectSite': 'Conectar {site}',
@@ -248,7 +248,7 @@ const en: Record<Key, string> = {
   'media.DISCONTINUED': 'Discontinued',
 
   'home.myList': 'My list',
-  'home.epsSeen': 'EPS WATCHED',
+  'home.animeWatched': 'ANIME WATCHED',
   'home.noAccount': "You haven't connected any account yet.",
   'home.notConnected': "You haven't connected {site} yet.",
   'home.connectSite': 'Connect {site}',

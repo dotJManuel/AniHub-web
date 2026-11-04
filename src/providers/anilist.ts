@@ -69,10 +69,11 @@ export async function getViewer(): Promise<{ id: number; name: string }> {
   return data.Viewer;
 }
 
-// Episodios vistos en total, el mismo dato que muestra el perfil de AniList ("Episodes Watched").
-export async function getEpisodesWatched(): Promise<number> {
-  const data = await gql('query { Viewer { statistics { anime { episodesWatched } } } }');
-  return data.Viewer?.statistics?.anime?.episodesWatched || 0;
+// Animes vistos (completados), el mismo dato que AniList cuenta como "Completed" en su perfil.
+export async function getAnimeWatched(): Promise<number> {
+  const data = await gql('query { Viewer { statistics { anime { statuses { status count } } } } }');
+  const rows: { status: string; count: number }[] = data.Viewer?.statistics?.anime?.statuses || [];
+  return rows.find((r) => r.status === 'COMPLETED')?.count || 0;
 }
 
 // Estados de AniList que corresponden a cada estado de lista ("viendo" incluye releyendo).

@@ -150,10 +150,10 @@ export default function Home() {
       .filter((g) => g.items.length);
   }, [filtered, type, byScore, sort, watching, listStatus]);
 
-  // Total de episodios vistos: estadística oficial del sitio (la lista "viendo" solo trae una parte).
+  // Animes vistos (completados): estadística oficial del sitio, igual que WATCHING/READING cuenta títulos.
   const eps = useQuery({
     queryKey: ['eps', source],
-    queryFn: () => service.getEpisodesWatched(source),
+    queryFn: () => service.getAnimeWatched(source),
     enabled: connected,
     staleTime: 10 * 60_000,
   });
@@ -189,7 +189,7 @@ export default function Home() {
               cells={[
                 { k: 'WATCHING', v: pad2(data.anime.length) },
                 { k: 'READING', v: pad2(data.manga.length) },
-                { k: t('home.epsSeen'), v: eps.data != null ? fmtNum(eps.data) : '—', accent: true },
+                { k: t('home.animeWatched'), v: eps.data != null ? fmtNum(eps.data) : '—', accent: true },
               ]}
             />
           )}
