@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import { Route, Routes } from 'react-router-dom';
-import { ToastContext, useApplyTheme, type ToastFn } from './hooks';
+import { ToastContext, useApplyLang, useApplyTheme, type ToastFn } from './hooks';
 import * as storage from './lib/storage';
 import Home from './pages/Home';
 import Search from './pages/Search';
@@ -24,6 +24,7 @@ applyDefaultSource();
 
 export default function App() {
   useApplyTheme();
+  useApplyLang();
   const [toast, setToast] = useState<{ msg: string; err: boolean; show: boolean }>({
     msg: '',
     err: false,

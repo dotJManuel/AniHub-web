@@ -1,4 +1,5 @@
 import type { NextEpisode, ScaleSetting, ServiceId } from '../types';
+import { tr } from './i18n';
 
 export const pad2 = (n: number) => String(n).padStart(2, '0');
 export const fmtNum = (n: number) => n.toLocaleString('en-US');
@@ -71,12 +72,12 @@ export function longCountdown(next: NextEpisode, now = Date.now()): string {
 // "hace 2 min" a partir de un instante en ms.
 export function agoLabel(ms: number, now = Date.now()): string {
   const s = Math.max(0, Math.floor((now - ms) / 1000));
-  if (s < 45) return 'hace un momento';
+  if (s < 45) return tr('ago.moment');
   const m = Math.floor(s / 60);
-  if (m < 60) return `hace ${Math.max(1, m)} min`;
+  if (m < 60) return tr('ago.min', { n: Math.max(1, m) });
   const h = Math.floor(m / 60);
-  if (h < 24) return `hace ${h} h`;
-  return `hace ${Math.floor(h / 24)} d`;
+  if (h < 24) return tr('ago.hour', { n: h });
+  return tr('ago.day', { n: Math.floor(h / 24) });
 }
 
 // "1d", "5h", "30m" para las filas de actividad (unix en segundos).

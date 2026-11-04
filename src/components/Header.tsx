@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useIsFetching, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useAuthStatus, useTheme } from '../hooks';
+import { useAuthStatus, useT, useTheme } from '../hooks';
 import * as service from '../lib/service';
 import type { ServiceId } from '../types';
 import { IconArrowLeft, IconBell, IconMoon, IconRefresh, IconSearch, IconSliders, IconSun } from './Icons';
@@ -24,17 +24,19 @@ export function useUnreadCount() {
 }
 
 export function ThemeButton() {
+  const t = useT();
   const { resolved, toggle } = useTheme();
   return (
-    <button className="ibtn" onClick={toggle} aria-label="Cambiar tema" title="Cambiar tema">
+    <button className="ibtn" onClick={toggle} aria-label={t('hdr.theme')} title={t('hdr.theme')}>
       {resolved === 'dark' ? <IconSun /> : <IconMoon />}
     </button>
   );
 }
 
 export function Logo() {
+  const t = useT();
   return (
-    <Link to="/" className="logo" aria-label="AniHub — inicio">
+    <Link to="/" className="logo" aria-label={t('app.home')}>
       <span className="logo-mark" aria-hidden="true">
         {/* ojo estilo anime con destello (misma figura que el ícono de la PWA) */}
         <svg viewBox="120 110 272 272" width="22" height="22" fill="none">
@@ -59,6 +61,7 @@ export function MainHeader({
   onSource: (s: ServiceId) => void;
   hideSync?: boolean;
 }) {
+  const t = useT();
   const status = useAuthStatus();
   const queryClient = useQueryClient();
   const syncing = useIsFetching({ queryKey: ['list'] }) > 0;
@@ -76,26 +79,26 @@ export function MainHeader({
       <div className="hdr-in container">
         <Logo />
         {sources.length > 1 && (
-          <Segmented className="hdr-seg" label="Fuente" value={source} options={sources} onChange={onSource} />
+          <Segmented className="hdr-seg" label={t('hdr.source')} value={source} options={sources} onChange={onSource} />
         )}
         <div className="grow" />
         <div className="hdr-actions">
-          <Link to="/search" className="ibtn hide-m" aria-label="Buscar" title="Buscar">
+          <Link to="/search" className="ibtn hide-m" aria-label={t('nav.search')} title={t('nav.search')}>
             <IconSearch />
           </Link>
           {!hideSync && (
-            <button className={`ibtn${syncing ? ' spin' : ''}`} onClick={sync} aria-label="Sincronizar" title="Sincronizar">
+            <button className={`ibtn${syncing ? ' spin' : ''}`} onClick={sync} aria-label={t('hdr.sync')} title={t('hdr.sync')}>
             <IconRefresh />
           </button>
           )}
           {status.anilist && (
-            <Link to="/notifications" className="ibtn hide-m" aria-label="Notificaciones" title="Notificaciones">
+            <Link to="/notifications" className="ibtn hide-m" aria-label={t('hdr.notifications')} title={t('hdr.notifications')}>
               <IconBell />
               {!!unread.data && <span className="dot" />}
             </Link>
           )}
           <ThemeButton />
-          <Link to="/settings" className="ibtn hide-m" aria-label="Ajustes" title="Ajustes">
+          <Link to="/settings" className="ibtn hide-m" aria-label={t('nav.settings')} title={t('nav.settings')}>
             <IconSliders />
           </Link>
         </div>

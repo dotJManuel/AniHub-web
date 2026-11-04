@@ -100,10 +100,29 @@ export interface EntryInput {
 
 export type NotificationKind = 'episode' | 'site' | 'follow' | 'activity' | 'thread' | 'data' | 'other';
 
+// Los nombres (usuario, título, hilo) vienen tal cual de la API; la frase la arma la UI.
+export type NotificationCode =
+  | 'airing'
+  | 'site'
+  | 'follow'
+  | 'mention'
+  | 'reply'
+  | 'like'
+  | 'replyLike'
+  | 'threadReply'
+  | 'dataChange'
+  | 'merge'
+  | 'deleted';
+
+// Los nombres (usuario, título, hilo) vienen tal cual de la API; la frase la arma la UI.
 export interface Notification {
   id: number;
   kind: NotificationKind;
-  text: string;
+  code: NotificationCode;
+  user: string;
+  media: string;
+  thread: string;
+  episode: number | null;
   url: string;
   image: string;
   createdAt: number;

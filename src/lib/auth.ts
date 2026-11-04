@@ -6,6 +6,7 @@
 //   client_secret (nunca viaja en el bundle del navegador).
 
 import { ANILIST, DEFAULT_CLIENT_IDS, MAL, PROXY_URL, redirectUri } from '../config';
+import { tr } from './i18n';
 import * as storage from './storage';
 
 const PENDING_KEY = 'oauth:pending';
@@ -49,7 +50,7 @@ function takePending(): Pending | null {
 
 export function loginAnilist(): void {
   const { anilist } = getClientIds();
-  if (!anilist) throw new Error('Falta el Client ID de AniList (configúralo en Ajustes).');
+  if (!anilist) throw new Error(tr('err.noAniListId'));
   setPending({ provider: 'anilist' });
   // AniList toma el Redirect URL registrado en la app; no se pasa como parámetro.
   window.location.assign(
@@ -59,7 +60,7 @@ export function loginAnilist(): void {
 
 export function loginMal(): void {
   const { mal } = getClientIds();
-  if (!mal) throw new Error('Falta el Client ID de MyAnimeList (configúralo en Ajustes).');
+  if (!mal) throw new Error(tr('err.noMalId'));
   const verifier = randomString(96); // PKCE plain: challenge === verifier
   const state = randomString(16);
   setPending({ provider: 'mal', state, verifier });
@@ -74,12 +75,12 @@ export function loginMal(): void {
 
 export async function completeLogin(): Promise<'anilist' | 'mal'> {
   const pending = takePending();
-  if (!pending) throw new Error('No hay un inicio de sesión en curso. Vuelve a intentarlo.');
+  if (!pending) throw new Error(tr('err.noLogin'));
 
   if (pending.provider === 'anilist') {
     const params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
     const token = params.get('access_token');
-    if (!token) throw new Error('AniList no devolvió un token.');
+    if (!token) throw new Error(tr('err.noAniListToken'));
     storage.setAnilistToken(token);
     return 'anilist';
   }
@@ -87,9 +88,9 @@ export async function completeLogin(): Promise<'anilist' | 'mal'> {
   const query = new URLSearchParams(window.location.search);
   const err = query.get('error');
   if (err) throw new Error(query.get('error_description') || err);
-  if (query.get('state') !== pending.state) throw new Error('State de OAuth no coincide (posible CSRF).');
+  if (query.get('state') !== pending.state) throw new Error(tr('err.state'));
   const code = query.get('code');
-  if (!code || !pending.verifier) throw new Error('MyAnimeList no devolvió un code.');
+  if (!code || !pending.verifier) throw new Error(tr('err.noMalCode'));
 
   const json = await tokenRequest({
     grant_type: 'authorization_code',
@@ -119,7 +120,7 @@ async function tokenRequest(body: Record<string, string>): Promise<MalTokenRespo
     body: JSON.stringify(body),
   });
   const json = (await res.json()) as MalTokenResponse;
-  if (!json.access_token) throw new Error(json.message || json.error || 'Fallo al obtener el token de MAL.');
+  if (!json.access_token) throw new Error(json.message || json.error || tr('err.malToken'));
   return json;
 }
 
@@ -152,9 +153,9 @@ async function refreshMal(): Promise<boolean> {
 // Devuelve un access_token de MAL válido (renueva si está por expirar).
 export async function ensureMalToken(): Promise<string> {
   const t = storage.getMalTokens();
-  if (!t) throw new Error('No autenticado en MyAnimeList.');
+  if (!t) throw new Error(tr('err.notAuthMal'));
   if (t.expires && Date.now() > t.expires - 24 * 60 * 60 * 1000) {
-    if (!(await refreshMal())) throw new Error('La sesión de MyAnimeList expiró. Vuelve a conectar.');
+    if (!(await refreshMal())) throw new Error(tr('err.malExpired'));
     return storage.getMalTokens()!.access;
   }
   return t.access;

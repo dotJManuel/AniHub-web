@@ -3,23 +3,20 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import BottomNav from '../components/BottomNav';
 import { SubHeader } from '../components/Header';
 import Segmented from '../components/Segmented';
-import { useAuthStatus, usePref, useScale, useTheme, useToast } from '../hooks';
+import { useAuthStatus, useLang, usePref, useScale, useT, useTheme, useToast } from '../hooks';
 import * as auth from '../lib/auth';
 import { agoLabel } from '../lib/format';
+import type { LangPref } from '../lib/i18n';
 import * as service from '../lib/service';
 import * as storage from '../lib/storage';
 import type { ScaleSetting, ServiceId, ThemePref } from '../types';
-
-const SECTIONS = [
-  { id: 'cuentas', label: 'Cuentas' },
-  { id: 'apariencia', label: 'Apariencia' },
-];
 
 function useLastSync(p: ServiceId) {
   return useSyncExternalStore(storage.subscribe, () => storage.getLastSync(p), () => null);
 }
 
 function AccountRow({ id, tag, name, onConnect }: { id: ServiceId; tag: string; name: string; onConnect: () => void }) {
+  const t = useT();
   const status = useAuthStatus();
   const queryClient = useQueryClient();
   const connected = status[id];
@@ -38,24 +35,24 @@ function AccountRow({ id, tag, name, onConnect }: { id: ServiceId; tag: string; 
     queryClient.removeQueries({ queryKey: ['user', id] });
   };
 
-  const parts = ['● conectado'];
+  const parts = [t('set.connected')];
   if (user.data?.name) parts.push(`@${user.data.name}`);
-  if (lastSync) parts.push(`sync ${agoLabel(lastSync)}`);
+  if (lastSync) parts.push(t('set.sync', { ago: agoLabel(lastSync) }));
 
   return (
     <div className="acct">
       <span className="tag mono">{tag}</span>
       <div className="info">
         <b>{name}</b>
-        <span className={`state mono${connected ? '' : ' off'}`}>{connected ? parts.join(' · ') : '○ sin conectar'}</span>
+        <span className={`state mono${connected ? '' : ' off'}`}>{connected ? parts.join(' · ') : t('set.notConnected')}</span>
       </div>
       <div className="acts">
         <button className={`btn${connected ? '' : ' pri'}`} onClick={onConnect}>
-          {connected ? 'Reconectar' : 'Conectar'}
+          {connected ? t('set.reconnect') : t('set.connect')}
         </button>
         {connected && (
           <button className="btn ghost" onClick={disconnect}>
-            Desconectar
+            {t('set.disconnect')}
           </button>
         )}
       </div>
@@ -64,8 +61,10 @@ function AccountRow({ id, tag, name, onConnect }: { id: ServiceId; tag: string; 
 }
 
 export default function Settings() {
+  const t = useT();
   const toast = useToast();
   const { pref: theme, setPref: setTheme } = useTheme();
+  const { pref: langPref, setPref: setLang } = useLang();
   const [scale, setScale] = useScale();
   const [activeTab] = usePref('activeTab', 'mal');
   const [defaultSource, setDefaultSource] = usePref('defaultSource', activeTab);
@@ -73,10 +72,14 @@ export default function Settings() {
   const [active, setActive] = useState('cuentas');
   const [msg, setMsg] = useState('');
 
+  const SECTIONS = [
+    { id: 'cuentas', label: t('set.accounts') },
+    { id: 'apariencia', label: t('set.appearance') },
+  ];
 
   // Resalta en la navegación lateral la sección que está a la vista.
   useEffect(() => {
-    const els = SECTIONS.map((s) => document.getElementById(s.id)).filter(Boolean) as HTMLElement[];
+    const els = ['cuentas', 'apariencia'].map((id) => document.getElementById(id)).filter(Boolean) as HTMLElement[];
     const io = new IntersectionObserver(
       (entries) => {
         const hit = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
@@ -88,9 +91,9 @@ export default function Settings() {
     return () => io.disconnect();
   }, []);
 
-  // Igual que antes: avisa y lanza el login (lógica de OAuth sin cambios). Los Client IDs ya no se editan aquí.
+  // Igual que antes: avisa y lanza el login (lógica de OAuth sin cambios).
   const connect = (label: string, fn: () => void) => {
-    setMsg(`Abriendo login de ${label}…`);
+    setMsg(t('set.opening', { site: label }));
     try {
       fn();
     } catch (e) {
@@ -99,12 +102,11 @@ export default function Settings() {
     }
   };
 
-
   return (
     <>
-      <SubHeader backLabel="Volver" path="~/settings" narrow />
+      <SubHeader backLabel={t('back.generic')} path="~/settings" narrow />
       <main className="container narrow settings has-nav">
-        <nav className="snav" aria-label="Secciones de ajustes">
+        <nav className="snav" aria-label={t('set.navAria')}>
           {SECTIONS.map((s) => (
             <a key={s.id} href={`#${s.id}`} className={active === s.id ? 'on' : ''} onClick={() => setActive(s.id)}>
               {s.label}
@@ -113,12 +115,12 @@ export default function Settings() {
         </nav>
 
         <div className="scol">
-          <h1>Ajustes</h1>
+          <h1>{t('set.title')}</h1>
 
           <section id="cuentas" className="panel">
             <div className="panel-head">
-              <h2>Cuentas conectadas</h2>
-              <p className="sub">Inicia sesión con MyAnimeList y AniList para sincronizar tus listas.</p>
+              <h2>{t('set.connectedAccounts')}</h2>
+              <p className="sub">{t('set.accountsSub')}</p>
             </div>
             <AccountRow id="anilist" tag="AL" name="AniList" onConnect={() => connect('AniList', auth.loginAnilist)} />
             <AccountRow id="mal" tag="MAL" name="MyAnimeList" onConnect={() => connect('MyAnimeList', auth.loginMal)} />
@@ -126,65 +128,82 @@ export default function Settings() {
           </section>
 
           <section id="apariencia" className="panel pad">
-            <h2>Apariencia</h2>
+            <h2>{t('set.appearance')}</h2>
             <div className="pref-row">
               <div className="t">
-                <b>Tema</b>
-                <span>Sistema sigue la preferencia de tu dispositivo.</span>
+                <b>{t('set.language')}</b>
+                <span>{t('set.languageSub')}</span>
+              </div>
+              <Segmented<LangPref>
+                className="sans flat"
+                label={t('set.language')}
+                value={langPref}
+                onChange={setLang}
+                options={[
+                  { id: 'system', label: t('set.system') },
+                  { id: 'es', label: 'Español' },
+                  { id: 'en', label: 'English' },
+                ]}
+              />
+            </div>
+            <div className="hr" />
+            <div className="pref-row">
+              <div className="t">
+                <b>{t('set.theme')}</b>
+                <span>{t('set.themeSub')}</span>
               </div>
               <Segmented<ThemePref>
                 className="sans flat"
-                label="Tema"
+                label={t('set.theme')}
                 value={theme}
                 onChange={setTheme}
                 options={[
-                  { id: 'system', label: 'Sistema' },
-                  { id: 'light', label: 'Claro' },
-                  { id: 'dark', label: 'Oscuro' },
+                  { id: 'system', label: t('set.system') },
+                  { id: 'light', label: t('set.light') },
+                  { id: 'dark', label: t('set.dark') },
                 ]}
               />
             </div>
             {status.mal && status.anilist && (
               <>
-            <div className="hr" />
-            <div className="pref-row">
-              <div className="t">
-                <b>Fuente predeterminada</b>
-                <span>La lista que se abre al entrar.</span>
-              </div>
-              <Segmented<ServiceId>
-                className="sans flat"
-                label="Fuente predeterminada"
-                value={defaultSource as ServiceId}
-                onChange={setDefaultSource}
-                options={[
-                  { id: 'mal', label: 'MyAnimeList' },
-                  { id: 'anilist', label: 'AniList' },
-                ]}
-              />
-            </div>
+                <div className="hr" />
+                <div className="pref-row">
+                  <div className="t">
+                    <b>{t('set.defaultSource')}</b>
+                    <span>{t('set.defaultSourceSub')}</span>
+                  </div>
+                  <Segmented<ServiceId>
+                    className="sans flat"
+                    label={t('set.defaultSource')}
+                    value={defaultSource as ServiceId}
+                    onChange={setDefaultSource}
+                    options={[
+                      { id: 'mal', label: 'MyAnimeList' },
+                      { id: 'anilist', label: 'AniList' },
+                    ]}
+                  />
+                </div>
               </>
             )}
             <div className="hr" />
             <div className="pref-row">
               <div className="t">
-                <b>Escala de puntuación</b>
-                <span>Unifica cómo se muestran los scores en las tarjetas.</span>
+                <b>{t('set.scale')}</b>
+                <span>{t('set.scaleSub')}</span>
               </div>
               <Segmented<ScaleSetting>
                 className="sans flat"
-                label="Escala de puntuación"
+                label={t('set.scale')}
                 value={scale}
                 onChange={setScale}
                 options={[
                   { id: '10', label: '0–10' },
                   { id: '100', label: '0–100' },
-                  { id: 'orig', label: 'Original' },
+                  { id: 'orig', label: t('set.scaleOrig') },
                 ]}
               />
             </div>
           </section>
-
         </div>
       </main>
       <BottomNav />

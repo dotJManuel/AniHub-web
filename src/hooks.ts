@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, useSyncExternalStore } from 'react';
 import * as auth from './lib/auth';
 import * as storage from './lib/storage';
+import { hasKey, resolveLang, translate, type Key, type LangPref } from './lib/i18n';
 import { applyTheme, resolveTheme } from './lib/theme';
 import type { ScaleSetting, ServiceId, ThemePref } from './types';
 
@@ -99,4 +100,34 @@ export function useDebounced<T>(value: T, ms = 350): T {
     return () => window.clearTimeout(t);
   }, [value, ms]);
   return v;
+}
+
+// --- Idioma de la interfaz (solo textos de la app; los datos de las APIs no se tocan) ------------
+
+export function useLang() {
+  const [pref, setPref] = usePref('lang', 'system');
+  const lang = resolveLang(pref as LangPref);
+  return { pref: pref as LangPref, lang, setPref: (v: LangPref) => setPref(v) };
+}
+
+export type TFn = (key: Key, params?: Record<string, string | number>) => string;
+
+// Devuelve t(clave, params) en el idioma vigente; el componente se vuelve a pintar al cambiarlo.
+export function useT(): TFn {
+  const { lang } = useLang();
+  return useCallback<TFn>((key, params) => translate(lang, key, params), [lang]);
+}
+
+// Mantiene <html lang> al día (se monta una sola vez en <App>).
+export function useApplyLang() {
+  const { lang } = useLang();
+  useEffect(() => {
+    document.documentElement.lang = lang;
+  }, [lang]);
+}
+
+// Etiqueta traducida de un código de estado de emisión ("RELEASING" -> "En emisión" / "Airing").
+export function useMediaStatus() {
+  const t = useT();
+  return (code: string) => (hasKey(`media.${code}`) ? t(`media.${code}` as Key) : code || '—');
 }

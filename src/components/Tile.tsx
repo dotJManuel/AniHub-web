@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useT } from '../hooks';
 import { displayScore, fmtNum, initials, shortCountdown } from '../lib/format';
 import type { ListItem, MediaType, ScaleSetting } from '../types';
 import { IconStar } from './Icons';
@@ -23,6 +24,7 @@ interface Props {
 
 // Tarjeta de lista: portada 2:3 a sangre completa; título, progreso y −/+1 encima.
 export default function Tile({ item, type, scale, busy, onStep }: Props) {
+  const t = useT();
   const [broken, setBroken] = useState(false);
   const h = hue(item.title);
   const pct = item.total ? Math.min(100, Math.round((item.progress / item.total) * 100)) : null;
@@ -34,7 +36,7 @@ export default function Tile({ item, type, scale, busy, onStep }: Props) {
       <Link
         className="cover"
         to={`/detail/${item.provider}/${type}/${item.id}`}
-        aria-label={`Ver ${item.title}`}
+        aria-label={t('card.view', { title: item.title })}
         style={{ background: `linear-gradient(160deg, oklch(0.52 0.13 ${h}), oklch(0.28 0.08 ${h}))` }}
       >
         {showImg ? (
@@ -67,17 +69,17 @@ export default function Tile({ item, type, scale, busy, onStep }: Props) {
                 <span className="unit">{unit}</span> {item.total ? `${fmtNum(item.progress)} / ${fmtNum(item.total)}` : fmtNum(item.progress)}
               </b>
             </span>
-            <span className="pct">{pct === null ? 'ongoing' : `${pct}%`}</span>
+            <span className="pct">{pct === null ? t('card.ongoing') : `${pct}%`}</span>
           </div>
           <div className="bar">
             <i style={{ width: pct === null ? '100%' : `${pct}%` }} />
           </div>
         </div>
         {onStep && (<div className="steps">
-          <button className="step" disabled={busy} onClick={() => onStep(-1)} aria-label="Restar uno">
+          <button className="step" disabled={busy} onClick={() => onStep(-1)} aria-label={t('card.minus')}>
             −
           </button>
-          <button className="step plus" disabled={busy} onClick={() => onStep(1)} aria-label="Sumar uno">
+          <button className="step plus" disabled={busy} onClick={() => onStep(1)} aria-label={t('card.plus')}>
             +1
           </button>
         </div>)}

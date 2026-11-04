@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useT } from '../hooks';
 import * as auth from '../lib/auth';
 
 // Recibe el retorno de OAuth, guarda el token y vuelve a la lista.
 export default function Callback() {
+  const t = useT();
   const navigate = useNavigate();
   const [error, setError] = useState('');
   // StrictMode ejecuta los efectos dos veces en dev; el code de OAuth es de un solo uso.
@@ -24,11 +26,11 @@ export default function Callback() {
         <div className="banner err">
           <p>{error}</p>
           <Link to="/settings" className="btn">
-            Volver a Ajustes
+            {t('cb.back')}
           </Link>
         </div>
       ) : (
-        <div className="empty">Conectando…</div>
+        <div className="empty">{t('cb.connecting')}</div>
       )}
     </main>
   );

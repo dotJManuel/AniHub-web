@@ -4,22 +4,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import BottomNav from '../components/BottomNav';
 import { SubHeader, useUnreadCount } from '../components/Header';
 import { IconArrowLeft, IconCheckAll } from '../components/Icons';
-import { useAuthStatus, useToast } from '../hooks';
+import { useAuthStatus, useT, useToast, type TFn } from '../hooks';
 import { initials, timeAgo } from '../lib/format';
+import type { Key } from '../lib/i18n';
 import * as service from '../lib/service';
-import type { Notification, NotificationKind } from '../types';
+import type { Notification } from '../types';
 
 type Filter = 'all' | 'episode' | 'site';
-
-const KIND_LABEL: Record<NotificationKind, string> = {
-  episode: 'NUEVO EPISODIO',
-  site: 'AÑADIDO AL SITIO',
-  follow: 'NUEVO SEGUIDOR',
-  activity: 'ACTIVIDAD',
-  thread: 'FORO',
-  data: 'CAMBIO EN EL SITIO',
-  other: 'AVISO',
-};
 
 function hueOf(s: string): number {
   let h = 0;
@@ -27,24 +18,37 @@ function hueOf(s: string): number {
   return h;
 }
 
-function Row({ n, unread }: { n: Notification; unread: boolean }) {
-  const h = hueOf(n.text);
+// La frase se arma aquí, en el idioma de la app; los nombres (usuario, título, hilo) vienen tal cual de AniList.
+function notifText(n: Notification, t: TFn): string {
+  const p = {
+    user: n.user || t('notif.someone'),
+    media: n.media,
+    thread: n.thread || t('notif.thread'),
+    ep: n.episode ?? '',
+  };
+  if (n.code === 'deleted' && !n.media) return t('notif.deleted', { media: t('notif.entry') });
+  return t(`notif.${n.code}` as Key, p);
+}
+
+function Row({ n, unread, t }: { n: Notification; unread: boolean; t: TFn }) {
+  const text = notifText(n, t);
+  const h = hueOf(text);
   const inner = (
     <>
       <span
         className="th"
         style={{ background: `linear-gradient(160deg, oklch(0.52 0.13 ${h}), oklch(0.28 0.08 ${h}))` }}
       >
-        {initials(n.text)}
+        {initials(text)}
         {n.image && <img src={n.image} alt="" loading="lazy" onError={(e) => (e.currentTarget.style.display = 'none')} />}
       </span>
       <span className="tx">
-        <span className={`kind mono ${n.kind}`}>{KIND_LABEL[n.kind]}</span>
-        <span className="body">{n.text}</span>
+        <span className={`kind mono ${n.kind}`}>{t(`kind.${n.kind}` as Key)}</span>
+        <span className="body">{text}</span>
       </span>
       <span className="side">
         <span className="ago">{timeAgo(n.createdAt)}</span>
-        {unread && <span className="unread" aria-label="Sin leer" />}
+        {unread && <span className="unread" aria-label={t('act.unread')} />}
       </span>
     </>
   );
@@ -59,6 +63,7 @@ function Row({ n, unread }: { n: Notification; unread: boolean }) {
 
 // Actividad: solo AniList (MyAnimeList no tiene API de notificaciones).
 export default function Notifications() {
+  const t = useT();
   const navigate = useNavigate();
   const status = useAuthStatus();
   const toast = useToast();
@@ -72,9 +77,9 @@ export default function Notifications() {
     mutationFn: service.markNotificationsRead,
     onSuccess: () => {
       queryClient.setQueryData(['unread'], 0);
-      toast('Todo marcado como leído');
+      toast(t('act.markedAll'));
     },
-    onError: (e: Error) => toast(`No se pudo marcar: ${e.message}`, true),
+    onError: (e: Error) => toast(t('act.markFail', { msg: e.message }), true),
   });
 
   // AniList no marca cada notificación: las N más recientes son las no leídas.
@@ -84,44 +89,42 @@ export default function Notifications() {
     const weekAgo = Math.floor(Date.now() / 1000) - 7 * 86400;
     const list = (q.data ?? []).filter((n) => filter === 'all' || n.kind === filter);
     return [
-      { label: 'ESTA SEMANA', items: list.filter((n) => n.createdAt >= weekAgo) },
-      { label: 'ANTES', items: list.filter((n) => n.createdAt < weekAgo) },
+      { key: 'week', label: t('act.thisWeek'), items: list.filter((n) => n.createdAt >= weekAgo) },
+      { key: 'before', label: t('act.earlier'), items: list.filter((n) => n.createdAt < weekAgo) },
     ].filter((s) => s.items.length);
-  }, [q.data, filter]);
+  }, [q.data, filter, t]);
 
   const back = () => (window.history.length > 1 ? navigate(-1) : navigate('/'));
   const filters: { id: Filter; label: string }[] = [
-    { id: 'all', label: 'Todo' },
-    { id: 'episode', label: 'Episodios' },
-    { id: 'site', label: 'Nuevos en el sitio' },
+    { id: 'all', label: t('act.fAll') },
+    { id: 'episode', label: t('act.fEpisodes') },
+    { id: 'site', label: t('act.fSite') },
   ];
 
   return (
     <>
       <div className="hide-m">
-        <SubHeader backLabel="Mi lista" path="~/activity" />
+        <SubHeader backLabel={t('back.list')} path="~/activity" />
       </div>
       <main className="container page has-nav" style={{ gap: 16 }}>
         <div className="act-head">
-          <button className="ibtn hide-d" onClick={back} aria-label="Volver">
+          <button className="ibtn hide-d" onClick={back} aria-label={t('back.generic')}>
             <IconArrowLeft />
           </button>
           <div className="ttl">
-            <h1>Actividad</h1>
+            <h1>{t('act.title')}</h1>
             {status.anilist && q.data && (
-              <span className="meta">
-                AniList · {q.data.length} · {unreadCount} sin leer
-              </span>
+              <span className="meta">{t('act.meta', { n: q.data.length, u: unreadCount })}</span>
             )}
           </div>
           {status.anilist && unreadCount > 0 && (
             <>
-              <button className="ibtn hide-d" onClick={() => markAll.mutate()} disabled={markAll.isPending} aria-label="Marcar todo como leído">
+              <button className="ibtn hide-d" onClick={() => markAll.mutate()} disabled={markAll.isPending} aria-label={t('act.markAll')}>
                 <IconCheckAll />
               </button>
               <button className="btn hide-m" onClick={() => markAll.mutate()} disabled={markAll.isPending}>
                 <IconCheckAll size={16} />
-                Marcar todo como leído
+                {t('act.markAll')}
               </button>
             </>
           )}
@@ -129,9 +132,9 @@ export default function Notifications() {
 
         {!status.anilist ? (
           <div className="banner">
-            <p>Las notificaciones solo están disponibles con AniList; MyAnimeList no ofrece esa API.</p>
+            <p>{t('act.onlyAniList')}</p>
             <Link to="/settings" className="btn pri">
-              Conectar AniList
+              {t('act.connectAniList')}
             </Link>
           </div>
         ) : (
@@ -143,22 +146,22 @@ export default function Notifications() {
                 </button>
               ))}
             </div>
-            {q.isPending && <div className="empty">Cargando actividad…</div>}
+            {q.isPending && <div className="empty">{t('act.loading')}</div>}
             {q.isError && (
               <div className="banner err">
                 <p>{(q.error as Error).message}</p>
               </div>
             )}
-            {q.data && !sections.length && <div className="empty">No hay notificaciones.</div>}
+            {q.data && !sections.length && <div className="empty">{t('act.none')}</div>}
             <div className="act-list">
               {sections.map((s) => (
-                <div key={s.label} style={{ display: 'contents' }}>
+                <div key={s.key} style={{ display: 'contents' }}>
                   <div className="sec-head">
                     <span className="lbl mono">// {s.label}</span>
                     <span className="rule" />
                   </div>
                   {s.items.map((n) => (
-                    <Row key={n.id} n={n} unread={unreadIds.has(n.id)} />
+                    <Row key={n.id} n={n} unread={unreadIds.has(n.id)} t={t} />
                   ))}
                 </div>
               ))}

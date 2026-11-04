@@ -1,5 +1,6 @@
 // Provider de AniList (GraphQL). AniList sí envía CORS, así que se llama directo.
 import { ANILIST } from '../config';
+import { tr } from '../lib/i18n';
 import * as storage from '../lib/storage';
 import type {
   Detail,
@@ -10,7 +11,6 @@ import type {
   NextEpisode,
   SearchPage,
   Notification,
-  NotificationKind,
   Release,
   Status,
 } from '../types';
@@ -39,7 +39,7 @@ async function gql(
   { auth = true }: { auth?: boolean } = {},
 ): Promise<any> {
   const token = storage.getAnilistToken();
-  if (auth && !token) throw new Error('No autenticado en AniList.');
+  if (auth && !token) throw new Error(tr('err.notAuthAni'));
   const res = await fetch(ANILIST.graphql, {
     method: 'POST',
     headers: {
@@ -54,9 +54,9 @@ async function gql(
     const e = json.errors[0];
     if (auth && (e.status === 400 || /token/i.test(e.message || ''))) {
       storage.clearProvider('anilist');
-      throw new Error('La sesión de AniList no es válida. Vuelve a conectar.');
+      throw new Error(tr('err.aniInvalid'));
     }
-    throw new Error(e.message || 'Error de AniList');
+    throw new Error(e.message || tr('err.aniGeneric'));
   }
   return json.data;
 }
@@ -180,16 +180,8 @@ function strToFuzzy(s: string) {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || '');
   return m ? { year: +m[1], month: +m[2], day: +m[3] } : { year: null, month: null, day: null };
 }
-function humanStatus(s: string) {
-  const map: Record<string, string> = {
-    RELEASING: 'En emisión',
-    FINISHED: 'Finalizado',
-    NOT_YET_RELEASED: 'Sin estrenar',
-    CANCELLED: 'Cancelado',
-    HIATUS: 'En pausa',
-  };
-  return map[s] || s || '—';
-}
+// El estado de emisión se guarda como código de AniList (RELEASING, FINISHED…); la UI lo traduce.
+const statusCode = (s: string) => s || '';
 
 const DETAIL_QUERY = `
 query ($id: Int, $type: MediaType) {
@@ -238,7 +230,7 @@ export async function getDetail(id: number, type: MediaType): Promise<Detail> {
     popularity: m.popularity ?? null,
     members: m.favourites ?? null,
     membersLabel: 'Favorites',
-    status: humanStatus(m.status),
+    status: statusCode(m.status),
     release: releaseOf(m.status),
     airingEp: m.nextAiringEpisode ? m.nextAiringEpisode.episode - 1 : null,
     next: nextOf(m.nextAiringEpisode),
@@ -305,34 +297,38 @@ query {
   }
 }`;
 
-function notifText(n: any): { kind: NotificationKind; text: string; url?: string; image?: string } | null {
-  const user = n.user?.name || 'Alguien';
+type NotifParts = Pick<Notification, 'kind' | 'code' | 'user' | 'media' | 'thread' | 'episode' | 'url' | 'image'>;
+
+// Datos de una notificación tal cual llegan de AniList (sin texto: la frase se arma en la UI).
+function notifParts(n: any): NotifParts | null {
+  const user = n.user?.name || '';
   const media = n.media?.title?.userPreferred || '';
   const cover = n.media?.coverImage?.medium || '';
   const avatar = n.user?.avatar?.medium || '';
+  const base = { user, media, thread: n.thread?.title || '', episode: null as number | null, url: '', image: '' };
   switch (n.__typename) {
     case 'AiringNotification':
-      return { kind: 'episode', text: `Episodio ${n.episode} de ${media}`, url: n.media?.siteUrl, image: cover };
+      return { ...base, kind: 'episode', code: 'airing', episode: n.episode ?? null, url: n.media?.siteUrl || '', image: cover };
     case 'RelatedMediaAdditionNotification':
-      return { kind: 'site', text: media, url: n.media?.siteUrl, image: cover };
+      return { ...base, kind: 'site', code: 'site', url: n.media?.siteUrl || '', image: cover };
     case 'FollowingNotification':
-      return { kind: 'follow', text: `${user} empezó a seguirte`, url: n.user?.siteUrl, image: avatar };
+      return { ...base, kind: 'follow', code: 'follow', url: n.user?.siteUrl || '', image: avatar };
     case 'ActivityMentionNotification':
-      return { kind: 'activity', text: `${user} te mencionó`, image: avatar };
+      return { ...base, kind: 'activity', code: 'mention', image: avatar };
     case 'ActivityReplyNotification':
-      return { kind: 'activity', text: `${user} respondió a tu actividad`, image: avatar };
+      return { ...base, kind: 'activity', code: 'reply', image: avatar };
     case 'ActivityLikeNotification':
-      return { kind: 'activity', text: `A ${user} le gustó tu actividad`, image: avatar };
+      return { ...base, kind: 'activity', code: 'like', image: avatar };
     case 'ActivityReplyLikeNotification':
-      return { kind: 'activity', text: `A ${user} le gustó tu respuesta`, image: avatar };
+      return { ...base, kind: 'activity', code: 'replyLike', image: avatar };
     case 'ThreadCommentReplyNotification':
-      return { kind: 'thread', text: `${user} respondió en ${n.thread?.title || 'un hilo'}`, url: n.thread?.siteUrl, image: avatar };
+      return { ...base, kind: 'thread', code: 'threadReply', url: n.thread?.siteUrl || '', image: avatar };
     case 'MediaDataChangeNotification':
-      return { kind: 'data', text: `${media}: datos actualizados`, url: n.media?.siteUrl, image: cover };
+      return { ...base, kind: 'data', code: 'dataChange', url: n.media?.siteUrl || '', image: cover };
     case 'MediaMergeNotification':
-      return { kind: 'data', text: `${media}: entradas fusionadas`, url: n.media?.siteUrl, image: cover };
+      return { ...base, kind: 'data', code: 'merge', url: n.media?.siteUrl || '', image: cover };
     case 'MediaDeletionNotification':
-      return { kind: 'data', text: `${n.deletedMediaTitle || 'Una entrada'} fue eliminada` };
+      return { ...base, kind: 'data', code: 'deleted', media: n.deletedMediaTitle || '' };
     default:
       return null;
   }
@@ -341,17 +337,8 @@ function notifText(n: any): { kind: NotificationKind; text: string; url?: string
 function mapNotifications(data: any): Notification[] {
   const out: Notification[] = [];
   for (const n of data.Page?.notifications || []) {
-    const m = notifText(n);
-    if (m) {
-      out.push({
-        id: n.id,
-        kind: m.kind,
-        text: m.text,
-        url: m.url || '',
-        image: m.image || '',
-        createdAt: n.createdAt || 0,
-      });
-    }
+    const p = notifParts(n);
+    if (p) out.push({ id: n.id, createdAt: n.createdAt || 0, ...p });
   }
   return out;
 }
@@ -410,7 +397,7 @@ export async function searchPage(q: string, type: MediaType, page: number): Prom
       score: (m.averageScore ?? null) as number | null,
       format: m.format ? String(m.format).replace(/_/g, ' ') : '',
       year: (m.startDate?.year ?? null) as number | null,
-      status: humanStatus(m.status),
+      status: statusCode(m.status),
       total: ((type === 'anime' ? m.episodes : m.chapters) || 0) as number,
       inList: FROM_ANI[m.mediaListEntry?.status] || null,
     })),

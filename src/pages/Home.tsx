@@ -6,7 +6,7 @@ import { MainHeader } from '../components/Header';
 import { IconFilter, IconSearch } from '../components/Icons';
 import StatPanel from '../components/StatPanel';
 import Tile, { siteName } from '../components/Tile';
-import { useAuthStatus, usePref, useScale, useSource, useToast } from '../hooks';
+import { useAuthStatus, usePref, useScale, useSource, useT, useToast, type TFn } from '../hooks';
 import { fmtNum, normalize, pad2 } from '../lib/format';
 import * as service from '../lib/service';
 import { LIST_STATUSES } from '../types';
@@ -17,13 +17,13 @@ type Filter = 'all' | 'releasing' | 'finished';
 // Cuántas tarjetas se dibujan por grupo antes de pedir "Mostrar más" (las listas completas pueden ser enormes).
 const PAGE = 60;
 
-const STATUS_LABEL = (s: ListStatus, type: MediaType) =>
+const statusLabel = (t: TFn, s: ListStatus, type: MediaType) =>
   ({
-    WATCHING: type === 'anime' ? 'Viendo' : 'Leyendo',
-    COMPLETED: 'Completado',
-    PAUSED: 'En pausa',
-    DROPPED: 'Dropeado',
-    PLANNING: 'Pendiente',
+    WATCHING: type === 'anime' ? t('st.watching') : t('st.reading'),
+    COMPLETED: t('st.completed'),
+    PAUSED: t('st.paused'),
+    DROPPED: t('st.dropped'),
+    PLANNING: t('st.planning'),
   })[s];
 
 // Encabezado del grupo (mismo estilo mono en inglés que AIRING / FINISHED AIRING).
@@ -45,6 +45,7 @@ const STATUS_SLUG: Record<ListStatus, string> = {
 };
 
 export default function Home() {
+  const t = useT();
   const status = useAuthStatus();
   const [source, setSource] = useSource();
   const [typePref, setType] = usePref('activeType', 'anime');
@@ -109,9 +110,9 @@ export default function Home() {
     },
     onError: (e: Error, { item }, ctx) => {
       if (ctx) setProgressLocal(source, type, item.id, ctx.prev);
-      toast(`No se guardó: ${e.message}`, true);
+      toast(t('home.notSaved', { msg: e.message }), true);
     },
-    onSuccess: (_r, { next }) => toast(`Guardado en ${siteName(source)} (${next})`),
+    onSuccess: (_r, { next }) => toast(t('home.saved', { site: siteName(source), n: next })),
     onSettled: () => setBusyId(null),
   });
 
@@ -143,8 +144,8 @@ export default function Home() {
   const epsSeen = (data?.anime ?? []).reduce((a, i) => a + i.progress, 0);
   const filters: { id: Filter; label: string }[] =
     type === 'anime'
-      ? [{ id: 'all', label: 'Todos' }, { id: 'releasing', label: 'En emisión' }, { id: 'finished', label: 'Finalizado' }]
-      : [{ id: 'all', label: 'Todos' }, { id: 'releasing', label: 'Publicando' }];
+      ? [{ id: 'all', label: t('home.filterAll') }, { id: 'releasing', label: t('home.filterAiring') }, { id: 'finished', label: t('home.filterFinished') }]
+      : [{ id: 'all', label: t('home.filterAll') }, { id: 'releasing', label: t('home.filterPublishing') }];
 
   const pickType = (t: MediaType) => {
     setType(t);
@@ -165,7 +166,7 @@ export default function Home() {
               ~/library/{source === 'mal' ? 'myanimelist' : 'anilist'}
               {!watching && `/${STATUS_SLUG[listStatus]}`}
             </span>
-            <h1>Mi lista</h1>
+            <h1>{t('home.myList')}</h1>
           </div>
           {data && watching && (
             <StatPanel
@@ -173,7 +174,7 @@ export default function Home() {
               cells={[
                 { k: 'WATCHING', v: pad2(data.anime.length) },
                 { k: 'READING', v: pad2(data.manga.length) },
-                { k: 'EPS VISTOS', v: fmtNum(epsSeen), accent: true },
+                { k: t('home.epsSeen'), v: fmtNum(epsSeen), accent: true },
               ]}
             />
           )}
@@ -181,9 +182,9 @@ export default function Home() {
 
         {!connected ? (
           <div className="banner">
-            <p>{anyConnected ? `Todavía no conectaste ${siteName(source)}.` : 'Todavía no conectaste ninguna cuenta.'}</p>
+            <p>{anyConnected ? t('home.notConnected', { site: siteName(source) }) : t('home.noAccount')}</p>
             <Link to="/settings" className="btn pri">
-              {anyConnected ? `Conectar ${siteName(source)}` : 'Conectar una cuenta'}
+              {anyConnected ? t('home.connectSite', { site: siteName(source) }) : t('home.connectAccount')}
             </Link>
           </div>
         ) : (
@@ -209,15 +210,15 @@ export default function Home() {
                   <input
                     className="search"
                     type="search"
-                    placeholder="Buscar en tu lista…"
-                    aria-label="Buscar en tu lista"
+                    placeholder={t('home.searchList')}
+                    aria-label={t('home.searchList')}
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                   />
                 </label>
                 <button
                   className={`ibtn sm hide-d${searchOpen || query ? ' active' : ''}`}
-                  aria-label="Buscar en tu lista"
+                  aria-label={t('home.searchList')}
                   aria-expanded={searchOpen}
                   onClick={() => setSearchOpen((v) => !v)}
                 >
@@ -226,7 +227,7 @@ export default function Home() {
                 <div className="menu-wrap" ref={menuRef}>
                   <button
                     className={`ibtn sm${menuOpen ? ' active' : ''}`}
-                    aria-label="Filtros y orden"
+                    aria-label={t('home.filterMenu')}
                     aria-haspopup="true"
                     aria-expanded={menuOpen}
                     onClick={() => setMenuOpen((v) => !v)}
@@ -235,10 +236,10 @@ export default function Home() {
                     {(filter !== 'all' || byScore) && <span className="dot" />}
                   </button>
                   {menuOpen && (
-                    <div className="popover" role="dialog" aria-label="Filtros y orden">
+                    <div className="popover" role="dialog" aria-label={t('home.filterMenu')}>
                       {watching && (
                         <div className="pop-sec">
-                          <span className="lbl">EMISIÓN</span>
+                          <span className="lbl">{t('home.release')}</span>
                           <div className="chips wrap">
                             {filters.map((f) => (
                               <button key={f.id} className={`chip${filter === f.id ? ' on' : ''}`} onClick={() => setFilter(f.id)}>
@@ -249,10 +250,10 @@ export default function Home() {
                         </div>
                       )}
                       <div className="pop-sec">
-                        <span className="lbl">ORDEN</span>
+                        <span className="lbl">{t('home.sort')}</span>
                         <div className="chips wrap">
                           <button className={`chip${!byScore ? ' on' : ''}`} onClick={() => setByScore(false)}>
-                            Reciente
+                            {t('home.sortRecent')}
                           </button>
                           <button className={`chip${byScore ? ' on' : ''}`} onClick={() => setByScore(true)} aria-pressed={byScore}>
                             Score ↓
@@ -263,7 +264,7 @@ export default function Home() {
                   )}
                 </div>
               </div>
-              <div className="chips scroll" role="group" aria-label="Estado de la lista">
+              <div className="chips scroll" role="group" aria-label={t('home.statusGroup')}>
                 {LIST_STATUSES.map((s) => (
                   <button
                     key={s}
@@ -271,7 +272,7 @@ export default function Home() {
                     aria-pressed={listStatus === s}
                     onClick={() => pickStatus(s)}
                   >
-                    {STATUS_LABEL(s, type)}
+                    {statusLabel(t, s, type)}
                   </button>
                 ))}
               </div>
@@ -282,8 +283,8 @@ export default function Home() {
                     className="search"
                     type="search"
                     autoFocus={searchOpen}
-                    placeholder="Buscar en tu lista…"
-                    aria-label="Buscar en tu lista"
+                    placeholder={t('home.searchList')}
+                    aria-label={t('home.searchList')}
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                   />
@@ -311,10 +312,10 @@ export default function Home() {
             {data && !groups.length && (
               <div className="empty">
                 {query
-                  ? 'Sin resultados para tu búsqueda.'
+                  ? t('home.noResults')
                   : watching
-                    ? 'Nada por aquí.'
-                    : `No tienes ${type === 'anime' ? 'animes' : 'mangas'} en “${STATUS_LABEL(listStatus, type)}”.`}
+                    ? t('home.nothing')
+                    : t(type === 'anime' ? 'home.emptyAnime' : 'home.emptyManga', { status: statusLabel(t, listStatus, type) })}
               </div>
             )}
 
@@ -347,7 +348,7 @@ export default function Home() {
                 {g.items.length > shown && (
                   <div className="loadmore">
                     <button className="btn" onClick={() => setShown((n) => n + PAGE)}>
-                      Mostrar más ({g.items.length - shown})
+                      {t('home.showMore', { n: g.items.length - shown })}
                     </button>
                   </div>
                 )}

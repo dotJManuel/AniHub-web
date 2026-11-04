@@ -5,17 +5,17 @@ import { SubHeader } from '../components/Header';
 import { IconArrowUpRight, IconClose, IconPlay } from '../components/Icons';
 import StatPanel, { type StatCell } from '../components/StatPanel';
 import { siteName } from '../components/Tile';
-import { useToast } from '../hooks';
+import { useMediaStatus, useT, useToast, type TFn } from '../hooks';
 import { cleanSynopsis, fmtNum, initials, longCountdown, slugify } from '../lib/format';
 import * as service from '../lib/service';
 import type { Detail as DetailT, EntryInput, Link as LinkT, MediaType, ServiceId, ServiceList, Status } from '../types';
 
-const STATUS_LABEL = (type: MediaType): [Status, string][] => [
-  ['WATCHING', type === 'anime' ? 'Viendo' : 'Leyendo'],
-  ['COMPLETED', 'Completado'],
-  ['PAUSED', 'En pausa'],
-  ['DROPPED', 'Dropeado'],
-  ['PLANNING', 'Pendiente'],
+const statusOptions = (t: TFn, type: MediaType): [Status, string][] => [
+  ['WATCHING', type === 'anime' ? t('st.watching') : t('st.reading')],
+  ['COMPLETED', t('st.completed')],
+  ['PAUSED', t('st.paused')],
+  ['DROPPED', t('st.dropped')],
+  ['PLANNING', t('st.planning')],
 ];
 
 function hueOf(s: string): number {
@@ -25,6 +25,7 @@ function hueOf(s: string): number {
 }
 
 export default function Detail() {
+  const t = useT();
   const params = useParams();
   const svc = params.service as ServiceId;
   const type = params.type as MediaType;
@@ -51,12 +52,12 @@ export default function Detail() {
 
   return (
     <>
-      <SubHeader backLabel="Mi lista" path={`~/${type}/${merged ? slugify(merged.title) : '…'}`}>
+      <SubHeader backLabel={t('back.list')} path={`~/${type}/${merged ? slugify(merged.title) : '…'}`}>
         {/* Cada sitio es independiente: el detalle muestra y guarda solo en el sitio desde el que se abrió. */}
-        <span className="pill" title="Fuente de los datos">{siteName(svc)}</span>
+        <span className="pill" title={t('sourceTitle')}>{siteName(svc)}</span>
       </SubHeader>
       <main className="container detail">
-        {detail.isPending && <div className="empty">Cargando detalle…</div>}
+        {detail.isPending && <div className="empty">{t('detail.loading')}</div>}
         {detail.isError && (
           <div className="banner err">
             <p>{(detail.error as Error).message}</p>
@@ -75,6 +76,8 @@ export default function Detail() {
 }
 
 function DetailBody({ d, loadingExtras }: { d: DetailT; loadingExtras: boolean }) {
+  const t = useT();
+  const mediaStatus = useMediaStatus();
   const toast = useToast();
   const queryClient = useQueryClient();
   const isAnime = d.type === 'anime';
@@ -122,7 +125,7 @@ function DetailBody({ d, loadingExtras }: { d: DetailT; loadingExtras: boolean }
     } catch (e) {
       setSaving(false);
       setFailed(true);
-      toast(`Falló en ${siteName(d.provider)}: ${(e as Error).message}`, true);
+      toast(t('mylist.failedOn', { site: siteName(d.provider), msg: (e as Error).message }), true);
       return;
     }
     setSaving(false);
@@ -141,7 +144,7 @@ function DetailBody({ d, loadingExtras }: { d: DetailT; loadingExtras: boolean }
     queryClient.invalidateQueries({ queryKey: ['search', d.provider] });
     setSaved(entry);
     if (isMobile()) setOpen(false);
-    toast(`Guardado en ${siteName(d.provider)}`);
+    toast(t('mylist.savedTo', { site: siteName(d.provider) }));
   };
 
   // ¿Ya está en tu lista de este sitio? (los resultados del buscador pueden no estarlo)
@@ -149,11 +152,11 @@ function DetailBody({ d, loadingExtras }: { d: DetailT; loadingExtras: boolean }
 
   const statusName =
     entry.status === 'REPEATING'
-      ? isAnime ? 'Reviendo' : 'Releyendo'
-      : STATUS_LABEL(d.type).find(([v]) => v === entry.status)?.[1] ?? '';
+      ? isAnime ? t('st.repeating') : t('st.rereading')
+      : statusOptions(t, d.type).find(([v]) => v === entry.status)?.[1] ?? '';
   const summary =
     !onList && !dirty
-      ? 'No está en tu lista'
+      ? t('mylist.notInList')
       : [
           statusName,
           `${isAnime ? 'EP' : 'CH'} ${entry.progress}${total ? ` / ${total}` : ''}`,
@@ -163,21 +166,21 @@ function DetailBody({ d, loadingExtras }: { d: DetailT; loadingExtras: boolean }
           .join(' · ');
 
   const syncLabel = saving
-    ? '● guardando…'
+    ? t('mylist.saving')
     : failed
-      ? '● error al guardar'
+      ? t('mylist.error')
       : dirty
-        ? '● sin guardar'
+        ? t('mylist.unsaved')
         : onList
-          ? '● sincronizado'
-          : '○ no está en tu lista';
+          ? t('mylist.synced')
+          : t('mylist.notInListState');
   const syncCls = failed ? ' err' : dirty || saving ? ' dirty' : '';
 
-  // --- Datos derivados ---
+  // --- Datos derivados (los textos de las APIs se muestran tal cual llegan) ---
   const behind = d.airingEp != null ? Math.max(0, d.airingEp - (d.my.progress || 0)) : null;
   const syn = cleanSynopsis(d.description);
   const altTitles = [d.titles.english, d.titles.romaji, d.titles.native].filter(
-    (t, i, a) => t && t !== d.title && a.indexOf(t) === i,
+    (x, i, a) => x && x !== d.title && a.indexOf(x) === i,
   );
 
   const cells: StatCell[] = [];
@@ -199,7 +202,7 @@ function DetailBody({ d, loadingExtras }: { d: DetailT; loadingExtras: boolean }
       {zoom && d.image && (
         <div className="lightbox" role="dialog" aria-modal="true" aria-label={d.title} onClick={() => setZoom(false)}>
           <img src={d.image} alt={d.title} onClick={(e) => e.stopPropagation()} />
-          <button className="lightbox-close" aria-label="Cerrar" onClick={() => setZoom(false)}>
+          <button className="lightbox-close" aria-label={t('detail.close')} onClick={() => setZoom(false)}>
             <IconClose />
           </button>
         </div>
@@ -207,7 +210,7 @@ function DetailBody({ d, loadingExtras }: { d: DetailT; loadingExtras: boolean }
 
       <section className="hero">
         {d.image ? (
-          <button className="hero-cover zoomable" onClick={() => setZoom(true)} title="Ver imagen completa" aria-label="Ver imagen completa">
+          <button className="hero-cover zoomable" onClick={() => setZoom(true)} title={t('detail.viewFull')} aria-label={t('detail.viewFull')}>
             <img src={d.image} alt={d.title} />
           </button>
         ) : (
@@ -219,7 +222,7 @@ function DetailBody({ d, loadingExtras }: { d: DetailT; loadingExtras: boolean }
         <div className="hero-info">
           <div className="hero-head">
             <div className="row-wrap">
-              <span className={`pill${d.release === 'releasing' ? ' live' : ''}`}>● {d.status}</span>
+              <span className={`pill${d.release === 'releasing' ? ' live' : ''}`}>● {mediaStatus(d.status)}</span>
               {d.format && <span className="pill">{d.format}</span>}
               {d.season && <span className="pill">{d.season}</span>}
               {studio && <span className="pill">{studio}</span>}
@@ -231,7 +234,7 @@ function DetailBody({ d, loadingExtras }: { d: DetailT; loadingExtras: boolean }
           <div className="row-wrap gap10">
             <a className="btn" href={d.siteUrl} target="_blank" rel="noopener noreferrer">
               <IconArrowUpRight size={15} />
-              Abrir en {siteName(d.provider)}
+              {t('detail.openOn', { site: siteName(d.provider) })}
             </a>
             {d.streaming.map((l) => (
               <a key={l.url} className="btn" href={l.url} target="_blank" rel="noopener noreferrer">
@@ -247,14 +250,14 @@ function DetailBody({ d, loadingExtras }: { d: DetailT; loadingExtras: boolean }
         <div className="dmain">
           {syn.text && (
             <div className="dsec">
-              <span className="lbl">// SINOPSIS</span>
+              <span className="lbl">// {t('detail.synopsis')}</span>
               <p className="synopsis">{syn.text}</p>
-              {syn.source && <span className="src-line">fuente: {syn.source}</span>}
+              {syn.source && <span className="src-line">{t('detail.sourceLine', { x: syn.source })}</span>}
             </div>
           )}
           {d.genres.length > 0 && (
             <div className="dsec">
-              <span className="lbl">// GÉNEROS</span>
+              <span className="lbl">// {t('detail.genres')}</span>
               <div className="row-wrap">
                 {d.genres.map((g) => (
                   <span key={g} className="pill">{g}</span>
@@ -264,7 +267,7 @@ function DetailBody({ d, loadingExtras }: { d: DetailT; loadingExtras: boolean }
           )}
           {d.characters.length > 0 && (
             <div className="dsec lg">
-              <span className="lbl">// PERSONAJES</span>
+              <span className="lbl">// {t('detail.characters')}</span>
               <div className="chars">
                 {d.characters.map((c, i) => (
                   <div className="char" key={`${c.name}-${i}`}>
@@ -281,10 +284,10 @@ function DetailBody({ d, loadingExtras }: { d: DetailT; loadingExtras: boolean }
               </div>
             </div>
           )}
-          {loadingExtras && <span className="src-line">Cargando personajes y enlaces…</span>}
+          {loadingExtras && <span className="src-line">{t('detail.loadingExtras')}</span>}
           {d.externalLinks.length > 0 && (
             <div className="dsec">
-              <span className="lbl">// ENLACES</span>
+              <span className="lbl">// {t('detail.links')}</span>
               <div className="row-wrap">
                 {d.externalLinks.map((l: LinkT) => (
                   <a key={l.url} className="pill" href={l.url} target="_blank" rel="noopener noreferrer">
@@ -297,9 +300,9 @@ function DetailBody({ d, loadingExtras }: { d: DetailT; loadingExtras: boolean }
         </div>
 
         {open && <div className="sheet-backdrop hide-d" onClick={() => setOpen(false)} />}
-        <aside className={`mylist${open ? '' : ' collapsed'}`} aria-label="Mi lista">
+        <aside className={`mylist${open ? '' : ' collapsed'}`} aria-label={t('mylist.title')}>
           <div className="mylist-head">
-            <h2>Mi lista</h2>
+            <h2>{t('mylist.title')}</h2>
             <span className={`sync-state${syncCls}`} role="status">{syncLabel}</span>
             <button
               className="btn sm hide-d mylist-toggle"
@@ -307,7 +310,7 @@ function DetailBody({ d, loadingExtras }: { d: DetailT; loadingExtras: boolean }
               aria-controls="mylist-body"
               onClick={() => setOpen((v) => !v)}
             >
-              {open ? 'Cerrar' : onList ? 'Editar' : 'Agregar'}
+              {open ? t('detail.close') : onList ? t('mylist.edit') : t('mylist.add')}
             </button>
           </div>
           <p className="mylist-sum mono hide-d">{summary}</p>
@@ -315,25 +318,25 @@ function DetailBody({ d, loadingExtras }: { d: DetailT; loadingExtras: boolean }
           <div className="mylist-body" id="mylist-body">
 
           <div className="fgroup">
-            <span className="lbl">ESTADO</span>
+            <span className="lbl">{t('mylist.status')}</span>
             <div className="st-row">
-              {STATUS_LABEL(d.type).map(([v, label]) => (
+              {statusOptions(t, d.type).map(([v, label]) => (
                 <button key={v} className={`st${entry.status === v ? ' on' : ''}`} aria-pressed={entry.status === v} onClick={() => patch({ status: v })}>
                   {label}
                 </button>
               ))}
               {entry.status === 'REPEATING' && (
                 <button className="st on" aria-pressed="true">
-                  {isAnime ? 'Reviendo' : 'Releyendo'}
+                  {isAnime ? t('st.repeating') : t('st.rereading')}
                 </button>
               )}
             </div>
           </div>
 
           <div className="fgroup">
-            <label className="lbl" htmlFor="prog">PROGRESO · {isAnime ? 'EPISODIOS' : 'CAPÍTULOS'}</label>
+            <label className="lbl" htmlFor="prog">{isAnime ? t('mylist.progressEp') : t('mylist.progressCh')}</label>
             <div className="prog-ctl">
-              <button className="mini" onClick={() => patch({ progress: clampProgress(entry.progress - 1) })} aria-label="Restar uno">−</button>
+              <button className="mini" onClick={() => patch({ progress: clampProgress(entry.progress - 1) })} aria-label={t('card.minus')}>−</button>
               <input
                 id="prog"
                 className="field"
@@ -344,15 +347,15 @@ function DetailBody({ d, loadingExtras }: { d: DetailT; loadingExtras: boolean }
                 value={entry.progress}
                 onChange={(e) => patch({ progress: clampProgress(Number(e.target.value) || 0) })}
               />
-              <button className="mini plus" onClick={() => patch({ progress: clampProgress(entry.progress + 1) })} aria-label="Sumar uno">+</button>
+              <button className="mini plus" onClick={() => patch({ progress: clampProgress(entry.progress + 1) })} aria-label={t('card.plus')}>+</button>
             </div>
             {d.next && isAnime && (
-              <span className="hint">Siguiente: EP {d.next.episode} · en {longCountdown(d.next)}</span>
+              <span className="hint">{t('mylist.next', { ep: d.next.episode, time: longCountdown(d.next) })}</span>
             )}
           </div>
 
           <div className="fgroup">
-            <label className="lbl" htmlFor="score">PUNTUACIÓN · 0–{d.my.scoreMax}</label>
+            <label className="lbl" htmlFor="score">{t('mylist.score', { max: d.my.scoreMax })}</label>
             <input
               id="score"
               className="field"
@@ -367,17 +370,17 @@ function DetailBody({ d, loadingExtras }: { d: DetailT; loadingExtras: boolean }
 
           <div className="two">
             <div className="fgroup">
-              <label className="lbl" htmlFor="sd">INICIO</label>
+              <label className="lbl" htmlFor="sd">{t('mylist.start')}</label>
               <input id="sd" className="field" type="date" value={entry.startDate} onChange={(e) => patch({ startDate: e.target.value })} />
             </div>
             <div className="fgroup">
-              <label className="lbl" htmlFor="fd">FIN</label>
+              <label className="lbl" htmlFor="fd">{t('mylist.end')}</label>
               <input id="fd" className="field" type="date" value={entry.finishDate} onChange={(e) => patch({ finishDate: e.target.value })} />
             </div>
           </div>
 
           <button className="save" onClick={save} disabled={saving}>
-            {saving ? 'Guardando…' : onList ? 'Guardar cambios' : 'Agregar a mi lista'}
+            {saving ? t('mylist.savingBtn') : onList ? t('mylist.saveChanges') : t('mylist.addToList')}
           </button>
           </div>
         </aside>

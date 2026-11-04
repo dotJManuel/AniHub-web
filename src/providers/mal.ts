@@ -1,6 +1,7 @@
 // Provider de MyAnimeList (API v2 REST), siempre a través del proxy (sin CORS en MAL).
 import { PROXY_URL } from '../config';
 import { ensureMalToken } from '../lib/auth';
+import { tr } from '../lib/i18n';
 import type {
   Detail,
   EntryInput,
@@ -57,7 +58,7 @@ async function apiFetch(path: string, opts: { method?: string; body?: string } =
   try {
     json = text ? JSON.parse(text) : {};
   } catch {
-    throw new Error('Respuesta inesperada de MyAnimeList.');
+    throw new Error(tr('err.malUnexpected'));
   }
   if (json.error) throw new Error(json.message || json.error);
   return json;
@@ -119,18 +120,19 @@ export async function save(id: number, type: MediaType, progress: number, status
 function cap(s: string) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
 }
-function humanStatus(s: string) {
+// Los estados de MAL se pasan a los mismos códigos que usa AniList (la UI los traduce).
+function statusCode(s: string) {
   const map: Record<string, string> = {
-    currently_airing: 'En emisión',
-    finished_airing: 'Finalizado',
-    not_yet_aired: 'Sin estrenar',
-    currently_publishing: 'Publicándose',
-    finished: 'Finalizado',
-    on_hiatus: 'En pausa',
-    discontinued: 'Discontinuado',
-    not_yet_published: 'Sin publicar',
+    currently_airing: 'RELEASING',
+    currently_publishing: 'RELEASING',
+    finished_airing: 'FINISHED',
+    finished: 'FINISHED',
+    not_yet_aired: 'NOT_YET_RELEASED',
+    not_yet_published: 'NOT_YET_RELEASED',
+    on_hiatus: 'HIATUS',
+    discontinued: 'DISCONTINUED',
   };
-  return map[s] || s || '—';
+  return map[s] || s || '';
 }
 
 // Jikan: API no oficial de MAL (sí tiene CORS). La API oficial no expone
@@ -190,7 +192,7 @@ export async function getDetail(id: number, type: MediaType): Promise<Detail> {
     popularity: m.popularity ?? null,
     members: m.num_list_users ?? null,
     membersLabel: 'Members',
-    status: humanStatus(m.status),
+    status: statusCode(m.status),
     release: releaseOf(m.status),
     airingEp: null,
     next: null,
@@ -259,7 +261,7 @@ export async function searchPage(q: string, type: MediaType, page: number): Prom
         score: (n.mean ?? null) as number | null,
         format: n.media_type ? String(n.media_type).replace(/_/g, ' ').toUpperCase() : '',
         year: n.start_date ? Number(String(n.start_date).slice(0, 4)) || null : null,
-        status: humanStatus(n.status),
+        status: statusCode(n.status),
         total: ((type === 'anime' ? n.num_episodes : n.num_chapters) || 0) as number,
         inList: FROM_MAL[n.my_list_status?.status] || null,
       };

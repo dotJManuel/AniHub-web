@@ -6,7 +6,7 @@ import { MainHeader } from '../components/Header';
 import { IconClose, IconSearch } from '../components/Icons';
 import ResultCard from '../components/ResultCard';
 import { siteName } from '../components/Tile';
-import { useAuthStatus, useDebounced, useScale, useSource } from '../hooks';
+import { useAuthStatus, useDebounced, useScale, useSource, useT } from '../hooks';
 import { pad2 } from '../lib/format';
 import * as service from '../lib/service';
 import type { MediaType, SearchPage, SearchResult, ServiceId } from '../types';
@@ -44,6 +44,7 @@ function flatten(pages: SearchPage[] | undefined): SearchResult[] {
 // Buscador global: un solo cuadro busca anime y manga a la vez, en el sitio activo (MAL o AniList).
 // La consulta vive en la URL (?q=), así al volver desde un detalle se conservan los resultados.
 export default function Search() {
+  const t = useT();
   const status = useAuthStatus();
   const [source, setSource] = useSource();
   const [scale] = useScale();
@@ -81,7 +82,7 @@ export default function Search() {
   }, [items, filter]);
 
   const filters: { id: Filter; label: string; n: number }[] = [
-    { id: 'all', label: 'Todo', n: items.anime.length + items.manga.length },
+    { id: 'all', label: t('search.all'), n: items.anime.length + items.manga.length },
     { id: 'anime', label: 'Anime', n: items.anime.length },
     { id: 'manga', label: 'Manga', n: items.manga.length },
   ];
@@ -93,15 +94,15 @@ export default function Search() {
         <section className="titlebar">
           <div>
             <span className="route">~/search/{source === 'mal' ? 'myanimelist' : 'anilist'}</span>
-            <h1>Buscar</h1>
+            <h1>{t('search.title')}</h1>
           </div>
         </section>
 
         {!connected ? (
           <div className="banner">
-            <p>{status.mal || status.anilist ? `Conecta ${siteName(source)} para buscar ahí.` : 'Todavía no conectaste ninguna cuenta.'}</p>
+            <p>{status.mal || status.anilist ? t('search.connectToSearch', { site: siteName(source) }) : t('home.noAccount')}</p>
             <Link to="/settings" className="btn pri">
-              Conectar {status.mal || status.anilist ? siteName(source) : 'una cuenta'}
+              {status.mal || status.anilist ? t('home.connectSite', { site: siteName(source) }) : t('home.connectAccount')}
             </Link>
           </div>
         ) : (
@@ -112,13 +113,13 @@ export default function Search() {
                 className="search"
                 type="search"
                 autoFocus
-                placeholder="Busca un anime o un manga…"
-                aria-label="Buscar anime o manga"
+                placeholder={t('search.placeholder')}
+                aria-label={t('search.aria')}
                 value={text}
                 onChange={(e) => setText(e.target.value)}
               />
               {text && (
-                <button type="button" className="clear" aria-label="Borrar búsqueda" onClick={() => setText('')}>
+                <button type="button" className="clear" aria-label={t('search.clear')} onClick={() => setText('')}>
                   <IconClose size={16} />
                 </button>
               )}
@@ -137,8 +138,8 @@ export default function Search() {
             {q.length < min && (
               <div className="empty">
                 {q.length === 0
-                  ? `Escribe el nombre de un anime o manga para buscarlo en ${siteName(source)}.`
-                  : `Escribe al menos ${min} caracteres.`}
+                  ? t('search.hintEmpty', { site: siteName(source) })
+                  : t('search.hintMin', { n: min })}
               </div>
             )}
             {ready && anime.isPending && manga.isPending && (
@@ -158,7 +159,7 @@ export default function Search() {
               </div>
             )}
             {ready && loaded && !groups.length && !errors.length && !anime.isPending && !manga.isPending && (
-              <div className="empty">Sin resultados para “{q}”.</div>
+              <div className="empty">{t('search.noResults', { q })}</div>
             )}
 
             {groups.map((g) => {
@@ -178,7 +179,7 @@ export default function Search() {
                   {qr.hasNextPage && (
                     <div className="loadmore">
                       <button className="btn" onClick={() => qr.fetchNextPage()} disabled={qr.isFetchingNextPage}>
-                        {qr.isFetchingNextPage ? 'Cargando…' : 'Cargar más'}
+                        {qr.isFetchingNextPage ? t('common.loading') : t('search.loadMore')}
                       </button>
                     </div>
                   )}
