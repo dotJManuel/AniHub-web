@@ -8,6 +8,7 @@ import Detail from './pages/Detail';
 import Notifications from './pages/Notifications';
 import Settings from './pages/Settings';
 import Callback from './pages/Callback';
+import ScrollTop from './components/ScrollTop';
 
 // Al abrir la app (una vez por sesión) se muestra la "Fuente predeterminada" de Ajustes.
 function applyDefaultSource() {
@@ -49,6 +50,7 @@ export default function App() {
         <Route path="/callback" element={<Callback />} />
         <Route path="*" element={<Home />} />
       </Routes>
+      <ScrollTop />
       <div className={`toast${toast.show ? ' show' : ''}${toast.err ? ' err' : ''}`} role="status">
         {toast.msg}
       </div>
