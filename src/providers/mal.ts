@@ -232,10 +232,10 @@ export async function saveEntry(id: number, type: MediaType, entry: EntryInput) 
   return apiFetch(`/${type}/${id}/my_list_status`, { method: 'PUT', body });
 }
 
-// Animes vistos (completados), el mismo dato que muestra el perfil de MAL ("Completed").
-export async function getAnimeWatched(): Promise<number> {
+// Total de animes del perfil de MAL ("Total Entries").
+export async function getAnimeTotal(): Promise<number> {
   const me = await apiFetch('/users/@me?fields=anime_statistics');
-  return Number(me.anime_statistics?.num_items_completed) || 0;
+  return Number(me.anime_statistics?.num_items) || 0;
 }
 
 // Usuario conectado (para mostrar @nombre en Ajustes).
