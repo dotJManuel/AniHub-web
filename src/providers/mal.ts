@@ -8,6 +8,7 @@ import type {
   ListItem,
   MediaType,
   Release,
+  SearchPage,
   Status,
 } from '../types';
 
@@ -221,4 +222,38 @@ export async function saveEntry(id: number, type: MediaType, entry: EntryInput) 
 export async function getMe(): Promise<{ id: number; name: string }> {
   const me = await apiFetch('/users/@me');
   return { id: me.id, name: me.name };
+}
+
+// --- Buscador global ----------------------------------------------------------
+
+const SEARCH_PAGE_SIZE = 12;
+
+// Una página de resultados de un tipo en MyAnimeList (solo MAL; no se cruza con AniList).
+// La API de MAL exige al menos 3 caracteres.
+export async function searchPage(q: string, type: MediaType, page: number): Promise<SearchPage> {
+  const fields =
+    'mean,media_type,status,start_date,my_list_status,' + (type === 'anime' ? 'num_episodes' : 'num_chapters');
+  const offset = (page - 1) * SEARCH_PAGE_SIZE;
+  const data = await apiFetch(
+    `/${type}?q=${encodeURIComponent(q)}&limit=${SEARCH_PAGE_SIZE}&offset=${offset}&fields=${fields}`,
+  );
+  return {
+    items: (data.data || []).map((row: any) => {
+      const n = row.node;
+      return {
+        provider: 'mal' as const,
+        id: n.id as number,
+        type,
+        title: n.title as string,
+        image: (n.main_picture?.large || n.main_picture?.medium || '') as string,
+        score: (n.mean ?? null) as number | null,
+        format: n.media_type ? String(n.media_type).replace(/_/g, ' ').toUpperCase() : '',
+        year: n.start_date ? Number(String(n.start_date).slice(0, 4)) || null : null,
+        status: humanStatus(n.status),
+        total: ((type === 'anime' ? n.num_episodes : n.num_chapters) || 0) as number,
+        inList: FROM_MAL[n.my_list_status?.status] || null,
+      };
+    }),
+    hasMore: !!data.paging?.next,
+  };
 }

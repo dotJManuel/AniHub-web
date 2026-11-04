@@ -111,3 +111,24 @@ export interface Notification {
 
 export type ScaleSetting = 'orig' | '10' | '100';
 export type ThemePref = 'system' | 'light' | 'dark';
+
+// Resultado del buscador global (de un solo sitio: cada sitio es independiente).
+export interface SearchResult {
+  provider: ServiceId;
+  id: number;
+  type: MediaType;
+  title: string;
+  image: string;
+  score: number | null; // en la escala nativa del sitio
+  format: string;
+  year: number | null;
+  status: string;
+  total: number;
+  inList: Status | null; // estado en tu lista, si ya está
+}
+
+// Una página (12) de resultados de un tipo, con la señal de si hay más.
+export interface SearchPage {
+  items: SearchResult[];
+  hasMore: boolean;
+}

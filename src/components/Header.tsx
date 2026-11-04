@@ -4,7 +4,7 @@ import { useIsFetching, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthStatus, useTheme } from '../hooks';
 import * as service from '../lib/service';
 import type { ServiceId } from '../types';
-import { IconArrowLeft, IconBell, IconMoon, IconRefresh, IconSliders, IconSun } from './Icons';
+import { IconArrowLeft, IconBell, IconMoon, IconRefresh, IconSearch, IconSliders, IconSun } from './Icons';
 import Segmented, { type SegOption } from './Segmented';
 
 export const SOURCES: SegOption<ServiceId>[] = [
@@ -50,7 +50,15 @@ export function Logo() {
 }
 
 // Header principal (Lista): logo, fuente MAL | AniList y acciones.
-export function MainHeader({ source, onSource }: { source: ServiceId; onSource: (s: ServiceId) => void }) {
+export function MainHeader({
+  source,
+  onSource,
+  hideSync,
+}: {
+  source: ServiceId;
+  onSource: (s: ServiceId) => void;
+  hideSync?: boolean;
+}) {
   const status = useAuthStatus();
   const queryClient = useQueryClient();
   const syncing = useIsFetching({ queryKey: ['list'] }) > 0;
@@ -72,9 +80,14 @@ export function MainHeader({ source, onSource }: { source: ServiceId; onSource: 
         )}
         <div className="grow" />
         <div className="hdr-actions">
-          <button className={`ibtn${syncing ? ' spin' : ''}`} onClick={sync} aria-label="Sincronizar" title="Sincronizar">
+          <Link to="/search" className="ibtn hide-m" aria-label="Buscar" title="Buscar">
+            <IconSearch />
+          </Link>
+          {!hideSync && (
+            <button className={`ibtn${syncing ? ' spin' : ''}`} onClick={sync} aria-label="Sincronizar" title="Sincronizar">
             <IconRefresh />
           </button>
+          )}
           {status.anilist && (
             <Link to="/notifications" className="ibtn hide-m" aria-label="Notificaciones" title="Notificaciones">
               <IconBell />

@@ -90,3 +90,13 @@ export function useSource(): [ServiceId, (s: ServiceId) => void] {
   const source: ServiceId = status[pref] ? pref : status.mal ? 'mal' : status.anilist ? 'anilist' : pref;
   return [source, set as (s: ServiceId) => void];
 }
+
+// Valor con retraso (para no consultar la API en cada tecla).
+export function useDebounced<T>(value: T, ms = 350): T {
+  const [v, setV] = useState(value);
+  useEffect(() => {
+    const t = window.setTimeout(() => setV(value), ms);
+    return () => window.clearTimeout(t);
+  }, [value, ms]);
+  return v;
+}

@@ -9,6 +9,7 @@ import type {
   Extras,
   MediaType,
   Notification,
+  SearchPage,
   ServiceId,
   ServiceList,
 } from '../types';
@@ -72,4 +73,9 @@ export async function getUser(service: ServiceId): Promise<{ id: number; name: s
   const cached = storage.getAnilistUser();
   if (cached) return cached;
   return anilist.getViewer();
+}
+
+// Buscador global: una página (12) de resultados de un tipo, solo en el sitio indicado.
+export function searchPage(service: ServiceId, q: string, type: MediaType, page: number): Promise<SearchPage> {
+  return service === 'mal' ? mal.searchPage(q, type, page) : anilist.searchPage(q, type, page);
 }

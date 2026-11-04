@@ -3,19 +3,18 @@ import { IconBell, IconGrid, IconSearch, IconSliders } from './Icons';
 import { useUnreadCount } from './Header';
 
 // Barra inferior de móvil: Lista · Buscar · Actividad · Ajustes.
-// "Buscar" lleva a la lista y enfoca el buscador local (no hay búsqueda global).
+// "Buscar" abre el buscador global (anime y manga).
 export default function BottomNav() {
-  const { pathname, search } = useLocation();
+  const { pathname } = useLocation();
   const unread = useUnreadCount();
-  const searching = pathname === '/' && search.includes('buscar');
 
   return (
     <nav className="bnav" aria-label="Navegación principal">
-      <NavLink to="/" end className={() => (pathname === '/' && !searching ? 'on' : '')}>
+      <NavLink to="/" end className={() => (pathname === '/' ? 'on' : '')}>
         <IconGrid />
         Lista
       </NavLink>
-      <NavLink to="/?buscar=1" className={() => (searching ? 'on' : '')}>
+      <NavLink to="/search" className={() => (pathname === '/search' ? 'on' : '')}>
         <IconSearch size={20} />
         Buscar
       </NavLink>

@@ -91,7 +91,7 @@ function DetailBody({ d, loadingExtras }: { d: DetailT; loadingExtras: boolean }
   // --- Panel "Mi lista" ---
   const initial = useMemo<EntryInput>(
     () => ({
-      status: d.my.status || 'WATCHING',
+      status: d.my.status || 'PLANNING',
       score: d.my.score || 0,
       progress: d.my.progress || 0,
       startDate: d.my.startDate || '',
@@ -137,24 +137,40 @@ function DetailBody({ d, loadingExtras }: { d: DetailT; loadingExtras: boolean }
         : old,
     );
     queryClient.invalidateQueries({ queryKey: ['detail', d.provider, d.type, d.id] });
+    queryClient.invalidateQueries({ queryKey: ['list', d.provider] });
+    queryClient.invalidateQueries({ queryKey: ['search', d.provider] });
     setSaved(entry);
     if (isMobile()) setOpen(false);
     toast(`Guardado en ${siteName(d.provider)}`);
   };
 
+  // ¿Ya está en tu lista de este sitio? (los resultados del buscador pueden no estarlo)
+  const onList = d.my.status !== null;
+
   const statusName =
     entry.status === 'REPEATING'
       ? isAnime ? 'Reviendo' : 'Releyendo'
       : STATUS_LABEL(d.type).find(([v]) => v === entry.status)?.[1] ?? '';
-  const summary = [
-    statusName,
-    `${isAnime ? 'EP' : 'CH'} ${entry.progress}${total ? ` / ${total}` : ''}`,
-    entry.score > 0 ? `★ ${entry.score}` : '',
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  const summary =
+    !onList && !dirty
+      ? 'No está en tu lista'
+      : [
+          statusName,
+          `${isAnime ? 'EP' : 'CH'} ${entry.progress}${total ? ` / ${total}` : ''}`,
+          entry.score > 0 ? `★ ${entry.score}` : '',
+        ]
+          .filter(Boolean)
+          .join(' · ');
 
-  const syncLabel = saving ? '● guardando…' : failed ? '● error al guardar' : dirty ? '● sin guardar' : '● sincronizado';
+  const syncLabel = saving
+    ? '● guardando…'
+    : failed
+      ? '● error al guardar'
+      : dirty
+        ? '● sin guardar'
+        : onList
+          ? '● sincronizado'
+          : '○ no está en tu lista';
   const syncCls = failed ? ' err' : dirty || saving ? ' dirty' : '';
 
   // --- Datos derivados ---
@@ -291,7 +307,7 @@ function DetailBody({ d, loadingExtras }: { d: DetailT; loadingExtras: boolean }
               aria-controls="mylist-body"
               onClick={() => setOpen((v) => !v)}
             >
-              {open ? 'Cerrar' : 'Editar'}
+              {open ? 'Cerrar' : onList ? 'Editar' : 'Agregar'}
             </button>
           </div>
           <p className="mylist-sum mono hide-d">{summary}</p>
@@ -361,7 +377,7 @@ function DetailBody({ d, loadingExtras }: { d: DetailT; loadingExtras: boolean }
           </div>
 
           <button className="save" onClick={save} disabled={saving}>
-            {saving ? 'Guardando…' : 'Guardar cambios'}
+            {saving ? 'Guardando…' : onList ? 'Guardar cambios' : 'Agregar a mi lista'}
           </button>
           </div>
         </aside>

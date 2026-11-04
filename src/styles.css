@@ -171,6 +171,16 @@ img { display: block; }
 }
 .search::placeholder { color: var(--mu); }
 
+/* Buscador global: cuadro grande con botón para borrar */
+.searchbox.big { max-width: none; margin-left: 0; flex: none; width: 100%; }
+.searchbox.big svg { top: 15px; left: 14px; }
+.searchbox.big .search { height: 48px; font-size: 16px; padding: 0 44px 0 44px; border-radius: 12px; }
+.searchbox .clear {
+  position: absolute; right: 6px; top: 6px; width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center;
+  border: 0; border-radius: 8px; background: transparent; color: var(--mu); padding: 0;
+}
+.searchbox .clear:hover { color: var(--tx); background: var(--sf2); }
+.loadmore { display: flex; justify-content: center; margin-top: 2px; }
 .group { display: flex; flex-direction: column; gap: 14px; }
 .grp-head { display: flex; align-items: center; gap: 12px; }
 .grp-head .lbl { text-transform: none; font-size: 12px; }

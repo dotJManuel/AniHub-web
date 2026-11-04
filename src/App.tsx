@@ -3,6 +3,7 @@ import { Route, Routes } from 'react-router-dom';
 import { ToastContext, useApplyTheme, type ToastFn } from './hooks';
 import * as storage from './lib/storage';
 import Home from './pages/Home';
+import Search from './pages/Search';
 import Detail from './pages/Detail';
 import Notifications from './pages/Notifications';
 import Settings from './pages/Settings';
@@ -40,6 +41,7 @@ export default function App() {
     <ToastContext.Provider value={showToast}>
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/search" element={<Search />} />
         <Route path="/detail/:service/:type/:id" element={<Detail />} />
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/settings" element={<Settings />} />

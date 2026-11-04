@@ -7,6 +7,7 @@ import type {
   ListItem,
   MediaType,
   NextEpisode,
+  SearchPage,
   Notification,
   NotificationKind,
   Release,
@@ -339,3 +340,49 @@ export async function markNotificationsRead(): Promise<void> {
   await gql(notifQuery(true));
 }
 
+
+// --- Buscador global ----------------------------------------------------------
+
+export const SEARCH_PAGE_SIZE = 12;
+
+const SEARCH_QUERY = `
+query ($q: String, $page: Int, $type: MediaType) {
+  Page(page: $page, perPage: ${SEARCH_PAGE_SIZE}) {
+    pageInfo { hasNextPage }
+    media(search: $q, type: $type, sort: SEARCH_MATCH) { ...M }
+  }
+}
+fragment M on Media {
+  id
+  format
+  status
+  episodes
+  chapters
+  averageScore
+  startDate { year }
+  title { userPreferred }
+  coverImage { large }
+  mediaListEntry { status }
+}`;
+
+// Una página de resultados de un tipo en AniList (solo AniList; no se cruza con MAL).
+export async function searchPage(q: string, type: MediaType, page: number): Promise<SearchPage> {
+  const data = await gql(SEARCH_QUERY, { q, type: type.toUpperCase(), page });
+  const p = data.Page;
+  return {
+    items: (p?.media || []).map((m: any) => ({
+      provider: 'anilist' as const,
+      id: m.id as number,
+      type,
+      title: m.title.userPreferred as string,
+      image: (m.coverImage?.large || '') as string,
+      score: (m.averageScore ?? null) as number | null,
+      format: m.format ? String(m.format).replace(/_/g, ' ') : '',
+      year: (m.startDate?.year ?? null) as number | null,
+      status: humanStatus(m.status),
+      total: ((type === 'anime' ? m.episodes : m.chapters) || 0) as number,
+      inList: FROM_ANI[m.mediaListEntry?.status] || null,
+    })),
+    hasMore: !!p?.pageInfo?.hasNextPage,
+  };
+}

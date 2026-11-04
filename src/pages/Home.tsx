@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import BottomNav from '../components/BottomNav';
 import { MainHeader } from '../components/Header';
@@ -21,20 +21,10 @@ export default function Home() {
   const [filter, setFilter] = useState<Filter>('all');
   const [byScore, setByScore] = useState(false);
   const [query, setQuery] = useState('');
-  const searchRef = useRef<HTMLInputElement>(null);
-  const [params, setParams] = useSearchParams();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [scale] = useScale();
   const [busyId, setBusyId] = useState<number | null>(null);
-
-  // Pestaña "Buscar" de la barra móvil: enfoca el buscador local.
-  useEffect(() => {
-    if (params.has('buscar')) {
-      searchRef.current?.focus();
-      setParams({}, { replace: true });
-    }
-  }, [params, setParams]);
 
   const connected = status[source];
   const anyConnected = status.mal || status.anilist;
@@ -156,7 +146,6 @@ export default function Home() {
                 <label className="searchbox">
                   <IconSearch />
                   <input
-                    ref={searchRef}
                     className="search"
                     type="search"
                     placeholder="Buscar en tu lista…"
