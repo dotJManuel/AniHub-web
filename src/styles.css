@@ -527,6 +527,13 @@ a.nrow:hover { border-color: var(--mu); color: var(--tx); }
     width: min(calc(100% - 32px), 400px); height: 50px; bottom: calc(12px + env(safe-area-inset-bottom));
   }
   [data-theme='light'] .bnav { --nav-bg: var(--tx); --nav-fg: #fff; }
+  /* Franja detrás de la barra (márgenes y valle incluidos): opaca abajo y con desvanecido arriba, para que el contenido
+     no desaparezca de golpe */
+  .bnav::before {
+    content: ''; position: fixed; left: 0; right: 0; bottom: 0; z-index: -1; pointer-events: none; background: var(--bg);
+    height: calc(12px + 50px + 4px + 32px + env(safe-area-inset-bottom));
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 32px); mask-image: linear-gradient(to bottom, transparent, #000 32px);
+  }
   .bnav-bg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; z-index: 0; }
   .bnav-bg path { fill: var(--nav-bg); }
   .bnav-circle {
