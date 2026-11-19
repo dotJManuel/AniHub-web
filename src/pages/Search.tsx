@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import BottomNav from '../components/BottomNav';
 import { MainHeader } from '../components/Header';
 import { IconClose, IconSearch } from '../components/Icons';
 import ResultCard from '../components/ResultCard';
@@ -189,7 +188,6 @@ export default function Search() {
           </>
         )}
       </main>
-      <BottomNav />
     </>
   );
 }

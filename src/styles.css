@@ -453,7 +453,7 @@ a.nrow:hover { border-color: var(--mu); color: var(--tx); }
 @media (max-width: 640px) {
   .container { padding-left: 16px; padding-right: 16px; }
   .page, .detail, .settings { padding-top: 20px; }
-  .page.has-nav, .detail.has-nav, .settings.has-nav { padding-bottom: calc(46px + env(safe-area-inset-bottom) + 24px); }
+  .page.has-nav, .detail.has-nav, .settings.has-nav { padding-bottom: calc(78px + env(safe-area-inset-bottom)); }
 
   /* Header compacto: una sola fila (logo · fuente · acciones) y controles más bajos */
   .hdr-in { flex-wrap: nowrap; gap: 8px; padding-top: 7px; padding-bottom: 7px; }
@@ -520,21 +520,35 @@ a.nrow:hover { border-color: var(--mu); color: var(--tx); }
   .act-head h1 { font-size: 22px; }
   .hide-d { display: inline-flex; }
 
-  /* Navegación inferior delgada: icono y etiqueta pequeños, sin relleno extra */
+  /* Barra inferior flotante con valle animado bajo la opción activa (ver BottomNav.tsx) */
   .bnav {
-    position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: flex; border-top: 1px solid var(--ln); background: var(--sf);
-    padding: 0 8px env(safe-area-inset-bottom);
+    --nav-bg: var(--sf2); --nav-fg: var(--tx);
+    position: fixed; left: 0; right: 0; margin-inline: auto; z-index: 20; display: block;
+    width: min(calc(100% - 32px), 400px); height: 50px; bottom: calc(12px + env(safe-area-inset-bottom));
   }
-  .bnav a, .bnav button {
-    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; min-height: 46px; color: var(--mu);
-    font: 500 10px 'Geist Mono', monospace; background: transparent; border: 0; padding: 0; position: relative;
+  [data-theme='light'] .bnav { --nav-bg: var(--tx); --nav-fg: #fff; }
+  .bnav-bg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; z-index: 0; }
+  .bnav-bg path { fill: var(--nav-bg); }
+  .bnav-circle {
+    position: absolute; top: -4px; left: 0; width: 36px; height: 36px; border-radius: 50%; background: var(--nav-bg);
+    will-change: transform; opacity: 0; pointer-events: none; z-index: 1;
   }
-  .bnav svg { width: 18px; height: 18px; }
-  .bnav a.on { color: var(--tx); }
-  .bnav .nav-dot { position: absolute; top: 5px; left: calc(50% + 6px); width: 7px; height: 7px; border-radius: 50%; background: var(--ac); }
-  .toast { bottom: calc(62px + env(safe-area-inset-bottom)); }
+  .bnav-row {
+    position: relative; z-index: 2; height: 100%; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: center;
+    padding: 4px max(10px, min(calc(428px - 150%), calc(50% - 80px))) 0;
+  }
+  .bnav-row a {
+    position: relative; height: 44px; display: flex; align-items: center; justify-content: center; color: var(--nav-fg);
+    border-radius: 14px; transform: none; transition: transform 0.38s cubic-bezier(0.34, 1.5, 0.5, 1) 0.12s;
+  }
+  .bnav-row a:hover { color: var(--nav-fg); }
+  .bnav-row a.on { transform: translate(var(--dx, 0px), -13px); }
+  .bnav-row a:focus-visible { outline: 2px solid var(--ac); outline-offset: -2px; }
+  .bnav.is-static .bnav-row a { transition: none; }
+  .bnav .nav-dot { position: absolute; top: 6px; left: calc(50% + 7px); width: 8px; height: 8px; border-radius: 50%; background: var(--ac); box-shadow: 0 0 0 2px var(--nav-bg); }
+  .toast { bottom: calc(86px + env(safe-area-inset-bottom)); }
   /* Por encima de la navegación inferior y de la barra "Mi lista" */
-  .fab { right: 14px; bottom: calc(66px + env(safe-area-inset-bottom)); }
+  .fab { right: 14px; bottom: calc(86px + env(safe-area-inset-bottom)); }
   .fab-btn { width: 40px; height: 40px; }
 }
 @media (min-width: 641px) { .hide-d { display: none !important; } }

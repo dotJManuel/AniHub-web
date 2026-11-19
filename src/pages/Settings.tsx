@@ -1,6 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import BottomNav from '../components/BottomNav';
 import { SubHeader } from '../components/Header';
 import Segmented from '../components/Segmented';
 import { useAuthStatus, useLang, usePref, useScale, useT, useTheme, useToast } from '../hooks';
@@ -206,7 +205,6 @@ export default function Settings() {
           </section>
         </div>
       </main>
-      <BottomNav />
     </>
   );
 }

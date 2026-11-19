@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { Route, Routes } from 'react-router-dom';
+import { Route, Routes, useLocation } from 'react-router-dom';
 import { ToastContext, useApplyLang, useApplyTheme, type ToastFn } from './hooks';
 import * as storage from './lib/storage';
 import Home from './pages/Home';
@@ -9,6 +9,7 @@ import Notifications from './pages/Notifications';
 import Settings from './pages/Settings';
 import Callback from './pages/Callback';
 import ScrollTop from './components/ScrollTop';
+import BottomNav from './components/BottomNav';
 
 // Al abrir la app (una vez por sesión) se muestra la "Fuente predeterminada" de Ajustes.
 function applyDefaultSource() {
@@ -26,6 +27,9 @@ applyDefaultSource();
 export default function App() {
   useApplyTheme();
   useApplyLang();
+  const { pathname } = useLocation();
+  // La barra inferior vive aquí (no en cada página) para que el valle se mueva entre pantallas; el detalle y el callback no la llevan.
+  const showNav = !/^\/(detail|callback)(\/|$)/.test(pathname);
   const [toast, setToast] = useState<{ msg: string; err: boolean; show: boolean }>({
     msg: '',
     err: false,
@@ -50,6 +54,7 @@ export default function App() {
         <Route path="/callback" element={<Callback />} />
         <Route path="*" element={<Home />} />
       </Routes>
+      {showNav && <BottomNav />}
       <ScrollTop />
       <div className={`toast${toast.show ? ' show' : ''}${toast.err ? ' err' : ''}`} role="status">
         {toast.msg}

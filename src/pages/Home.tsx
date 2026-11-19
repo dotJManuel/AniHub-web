@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import BottomNav from '../components/BottomNav';
 import { MainHeader } from '../components/Header';
 import { IconFilter, IconSearch } from '../components/Icons';
 import StatPanel from '../components/StatPanel';
@@ -377,7 +376,6 @@ export default function Home() {
           </>
         )}
       </main>
-      <BottomNav />
     </>
   );
 }

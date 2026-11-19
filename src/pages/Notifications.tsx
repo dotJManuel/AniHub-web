@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import BottomNav from '../components/BottomNav';
 import { SubHeader, useUnreadCount } from '../components/Header';
 import { IconArrowLeft, IconCheckAll } from '../components/Icons';
 import { useAuthStatus, useT, useToast, type TFn } from '../hooks';
@@ -169,7 +168,6 @@ export default function Notifications() {
           </>
         )}
       </main>
-      <BottomNav />
     </>
   );
 }
